@@ -1,0 +1,47 @@
+{
+  "expo": {
+    "name": "ScanDoc",
+    "slug": "scandoc",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "scandoc",
+    "userInterfaceStyle": "automatic",
+    "icon": "./assets/icon.png",
+    "android": {
+      "package": "com.scandoc.app",
+      "allowBackup": false,
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-sqlite",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#061A40",
+          "image": "./assets/icon.png",
+          "imageWidth": 160
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "ScanDoc uses your camera to scan documents.",
+          "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Choose images to process locally in ScanDoc.",
+          "microphonePermission": false
+        }
+      ],
+      "expo-status-bar",
+      "expo-sharing",
+      "expo-font"
+    ]
+  }
+}

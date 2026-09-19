@@ -1,0 +1,310 @@
+import React from "react";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  type TextProps,
+  type ViewStyle,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import { useTheme } from "../theme/provider";
+export type IconName = React.ComponentProps<typeof Ionicons>["name"];
+export function Label({ style, ...props }: TextProps) {
+  const { colors } = useTheme();
+  return (
+    <Text
+      {...props}
+      style={[{ color: colors.text, fontSize: 15, lineHeight: 22 }, style]}
+    />
+  );
+}
+export function Icon({
+  name,
+  size = 22,
+  color,
+}: {
+  name: IconName;
+  size?: number;
+  color?: string;
+}) {
+  const { colors } = useTheme();
+  return <Ionicons name={name} size={size} color={color || colors.blue} />;
+}
+export function Screen({
+  children,
+  scroll = true,
+}: React.PropsWithChildren<{ scroll?: boolean }>) {
+  const { colors } = useTheme();
+  return (
+    <SafeAreaView
+      edges={["top", "left", "right"]}
+      style={{ flex: 1, backgroundColor: colors.background }}
+    >
+      {scroll ? (
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+        >
+          {children}
+        </ScrollView>
+      ) : (
+        <View style={[styles.content, { flex: 1 }]}>{children}</View>
+      )}
+    </SafeAreaView>
+  );
+}
+export function Header({
+  title,
+  subtitle,
+  action,
+}: {
+  title: string;
+  subtitle?: string;
+  action?: React.ReactNode;
+}) {
+  const { colors } = useTheme();
+  return (
+    <View style={styles.header}>
+      <View style={{ flex: 1 }}>
+        <Label
+          accessibilityRole="header"
+          style={{
+            fontSize: 27,
+            lineHeight: 34,
+            fontWeight: "700",
+            letterSpacing: -0.8,
+          }}
+        >
+          {title}
+        </Label>
+        {subtitle && (
+          <Label
+            style={{ color: colors.secondary, marginTop: 4, fontSize: 13 }}
+          >
+            {subtitle}
+          </Label>
+        )}
+      </View>
+      {action}
+    </View>
+  );
+}
+export function Button({
+  title,
+  onPress,
+  icon,
+  secondary,
+  disabled,
+}: {
+  title: string;
+  onPress: () => void;
+  icon?: IconName;
+  secondary?: boolean;
+  disabled?: boolean;
+}) {
+  const { colors } = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.button,
+        {
+          backgroundColor: secondary ? colors.tint : "#075FE4",
+          opacity: disabled ? 0.45 : pressed ? 0.75 : 1,
+        },
+      ]}
+    >
+      {icon && (
+        <Icon name={icon} color={secondary ? colors.blue : "white"} size={20} />
+      )}
+      <Label
+        style={{ color: secondary ? colors.blue : "white", fontWeight: "600" }}
+      >
+        {title}
+      </Label>
+    </Pressable>
+  );
+}
+export function IconButton({
+  name,
+  label,
+  onPress,
+}: {
+  name: IconName;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      style={styles.iconButton}
+    >
+      <Icon name={name} />
+    </Pressable>
+  );
+}
+export function Card({
+  children,
+  style,
+}: React.PropsWithChildren<{ style?: ViewStyle }>) {
+  const { colors } = useTheme();
+  return (
+    <View
+      style={[
+        styles.card,
+        { backgroundColor: colors.surface, borderColor: colors.border },
+        style,
+      ]}
+    >
+      {children}
+    </View>
+  );
+}
+export function SearchBar({
+  value,
+  onChangeText,
+  placeholder = "Search documents",
+}: {
+  value: string;
+  onChangeText: (text: string) => void;
+  placeholder?: string;
+}) {
+  const { colors } = useTheme();
+  return (
+    <View
+      style={[
+        styles.search,
+        { backgroundColor: colors.surface, borderColor: colors.border },
+      ]}
+    >
+      <Icon name="search-outline" color={colors.secondary} size={20} />
+      <TextInput
+        accessibilityLabel={placeholder}
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor={colors.secondary}
+        style={{ flex: 1, color: colors.text, minHeight: 48, fontSize: 14 }}
+      />
+    </View>
+  );
+}
+export function Section({
+  title,
+  action,
+  onPress,
+}: {
+  title: string;
+  action?: string;
+  onPress?: () => void;
+}) {
+  return (
+    <View style={[styles.header, { marginTop: 26, marginBottom: 14 }]}>
+      <Label
+        accessibilityRole="header"
+        style={{ fontSize: 18, fontWeight: "600", flex: 1 }}
+      >
+        {title}
+      </Label>
+      {action && (
+        <Pressable
+          onPress={onPress}
+          accessibilityRole="button"
+          style={{ minHeight: 44, justifyContent: "center" }}
+        >
+          <Label style={{ color: "#168BFF", fontSize: 13 }}>{action}</Label>
+        </Pressable>
+      )}
+    </View>
+  );
+}
+export function EmptyState({
+  title = "Room for your next idea",
+  description = "Scan or import your first document. Everything stays on your device.",
+  action,
+}: {
+  title?: string;
+  description?: string;
+  action?: React.ReactNode;
+}) {
+  const { colors } = useTheme();
+  return (
+    <Card style={{ alignItems: "center", paddingVertical: 30, gap: 12 }}>
+      <View
+        style={{ padding: 18, backgroundColor: colors.tint, borderRadius: 20 }}
+      >
+        <Icon name="documents-outline" size={34} />
+      </View>
+      <Label style={{ fontWeight: "600", fontSize: 17 }}>{title}</Label>
+      <Label
+        style={{
+          color: colors.secondary,
+          textAlign: "center",
+          maxWidth: 270,
+          fontSize: 13,
+        }}
+      >
+        {description}
+      </Label>
+      {action}
+    </Card>
+  );
+}
+export function Loading({ text = "Opening your library…" }: { text?: string }) {
+  return (
+    <View style={{ padding: 28, alignItems: "center", gap: 12 }}>
+      <ActivityIndicator color="#168BFF" />
+      <Label>{text}</Label>
+    </View>
+  );
+}
+const styles = StyleSheet.create({
+  content: {
+    padding: 20,
+    paddingBottom: 24,
+    width: "100%",
+    maxWidth: 860,
+    alignSelf: "center",
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 22,
+    gap: 12,
+  },
+  button: {
+    minHeight: 50,
+    borderRadius: 12,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 9,
+  },
+  iconButton: {
+    width: 48,
+    height: 48,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  card: { borderWidth: 1, borderRadius: 16, padding: 18 },
+  search: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+  },
+});

@@ -1,0 +1,14 @@
+node_modules/
+.expo/
+dist/
+android/
+ios/
+*.jks
+*.keystore
+.env*
+npm-debug.log*
+
+modules/**/android/build/
+modules/**/android/.gradle/
+emulator-test*.log
+*.tgz
