@@ -5,6 +5,8 @@ import {
   fileKind,
   formatBytes,
   matchesHeader,
+  sequenceName,
+  timestampName,
 } from "../src/utils/files.mjs";
 test("names cannot contain path separators or control characters", () => {
   assert.equal(cleanName(" /Work\\Invoice:2026?.pdf "), "WorkInvoice2026.pdf");
@@ -37,4 +39,17 @@ test("reject renamed or truncated files before importing", () => {
     matchesHeader("file.jpg", new Uint8Array([255, 216, 255])),
     true,
   );
+});
+
+test("suggested names are readable and sort chronologically", () => {
+  const name = timestampName("Scan", "pdf", new Date(2026, 8, 19, 15, 30, 45));
+  assert.equal(name, "Scan_2026-09-19_153045.pdf");
+  assert.equal(cleanName(name), name);
+});
+
+test("multi-file exports keep their order when sorted by name", () => {
+  assert.equal(sequenceName("Document", 1, 9, "jpg"), "Document_01.jpg");
+  assert.equal(sequenceName("Document", 7, 120, "jpg"), "Document_007.jpg");
+  const names = [1, 2, 10].map((i) => sequenceName("Page", i, 10, "jpg"));
+  assert.deepEqual([...names].sort(), names);
 });

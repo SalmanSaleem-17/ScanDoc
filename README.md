@@ -1,57 +1,71 @@
 # ScanDoc: Scanner, PDF & OCR
 
-An Android-first, offline document toolkit built with Expo Router and TypeScript. This repository is the **initial foundation**, not a finished Play Store release.
+Android-first, offline document toolkit using Expo SDK 57, React Native 0.86, Expo Router and TypeScript. This is an active development build, not a Play Store release.
 
-## Run
-
-Requires Node 22.13+ and npm. From this folder:
+## Run the preview
 
 ```powershell
 npm.cmd install
-npm.cmd start
+npm.cmd start -- --go --clear
 ```
 
-The project uses **Expo SDK 57**, React Native 0.86.3, and React 19.2.3. Expo Go SDK 54 (shown in the supplied screenshot) cannot run this project. Use matching SDK 57 Expo Go for foundation testing or an Android development build. Scripts call the Node entry point directly because Windows executable shims can break when a workspace path contains `&`.
+Use matching Expo Go SDK 57. The library, import/share, compression, camera, persistent drafts and receipt CSV work in Expo Go. Advanced processing clearly identifies when the native engine is missing.
 
-For a local development build, install Android Studio, its SDK/platform tools and the JDK required by the installed React Native version, attach a device with USB debugging, then run `npm.cmd run android`. `eas.json` also defines development, preview APK, and production profiles; EAS builds need your own Expo account/project configuration. No cloud build or store publishing has been performed.
+## Run all processing tools
 
-## Implemented in this iteration
+Offline OCR, perspective correction, quality analysis, book editing, redaction, visual comparison and PDF processing use a local Android module. **Updating Expo Go does not add this custom module. Build ScanDoc itself once.**
 
-- Home, Documents, Tools, Settings; central Scan action and runtime safe-area bottom navigation.
-- Light/dark/system themes, persisted as a lightweight preference.
-- Private files under ScanDoc/{Scans,PDF,Images,Compressed,OCR,Exports}; SQLite metadata, UUID filenames, and original-file preservation.
-- System file picker for PDF/JPEG/PNG/WebP, sequential import, per-file errors, storage checks.
-- Search by name/type, recent/name/size sorting, file details, rename, native sharing/export, recoverable trash.
-- Manual camera capture with contextual permission handling, torch, review, retake, and JPEG save.
-- Native JPEG compression with quality selection, measured results, save, share, and temporary output cleanup.
-- Reusable UI primitives and a sequential, cancellable batch-operation foundation.
+With Android SDK tools and a compatible JDK configured, connect a device with USB debugging or start an emulator:
 
-No sample documents, simulated OCR, fake detection outlines, or placeholder processing actions are presented as working features.
+```powershell
+npm.cmd run android
+```
 
-## Remaining phases
+Android builds are cache-heavy: Gradle and npm together can hold well over 10 GB, and they default to your system drive. If that drive is short of space the build fails in confusing ways — Gradle reports "Problems writing to Binary store" rather than "disk full". Point both at a roomier drive before building:
 
-1. Complete foundation: folders, paginated database queries, thumbnail cache, import cancellation/recovery, accessible device QA, onboarding and bundled Inter fonts.
-2. Scanner: native edge detection, stability/auto-capture, four-corner perspective correction, enhancement, multi-page draft recovery and PDF generation. Current capture is manual and saves JPEG only.
-3. Image tools: resize, batch controls, format conversion and image-to-PDF.
-4. PDF engine: native file-based merge/split/render/organize/compress with password/corruption handling. Imported PDFs currently use an external reader through Share; no internal PDF renderer yet.
-5. On-device OCR, editable results, text index and searchable PDFs.
-6. Signature, annotations and page editing.
-7. Performance, accessibility, tablet/device testing and release hardening.
+```powershell
+setx GRADLE_USER_HOME "D:\gradle-home"
+npm.cmd config set cache "D:\npm-cache"
+```
 
-Choose maintained native engines after an Android compatibility/license review; expose their file-based APIs through `src/services`. Native capabilities will require a rebuilt development client. The installed Expo camera does not supply document edge detection or perspective correction.
+`setx` only affects terminals opened afterwards, so close and reopen your terminal before building. Old caches left behind at `%USERPROFILE%\.gradle` and `%LOCALAPPDATA%\npm-cache` can then be deleted; Windows may keep a few lock files until a restart.
 
-## Reliability boundaries
+For subsequent JavaScript changes:
 
-- App-private files are deleted on uninstall. Share important files to a user-controlled location.
-- Trash is recoverable indefinitely in this iteration; permanent deletion is not exposed.
-- PDF page counts are unknown until a real parser is integrated. Imports validate supported extensions, basic readability and a bounded file-signature read; deeper PDF validation belongs to the native engine.
-- File copies and SQLite writes are compensating operations, not a cross-filesystem atomic transaction. Startup orphan reconciliation remains to be implemented.
-- Compression processes one image at a time natively but very large decoded images still require device memory. No claim of 100-page/100-image production readiness.
-- Processing is foreground work, not a persistent Android background job. Cancellation support in the batch service stops between files, not during a native call.
-- Android hardware back, camera app-background behavior, lifecycle draft recovery and image cache cleanup need further hardening.
-- No ads, accounts, analytics, cloud uploads, or tracking are included.
+```powershell
+npm.cmd start -- --dev-client
+```
 
-## Verification
+Install/open the ScanDoc development app, rather than Expo Go. Native dependency changes require rebuilding. `eas.json` contains development and APK preview build profiles if you configure your own EAS project. No cloud build or store publishing is performed automatically.
+
+## Current workflows
+
+- Home, Documents, Tools, Settings; light/dark/system themes and runtime safe areas.
+- Private filesystem storage, SQLite metadata, import, search, sorting, rename, share/export and recoverable trash.
+- Camera captures persist immediately into drafts. Resume them from Home → Resume scans or Tools → Scan workspace.
+- Multi-page drafts: camera/gallery pages, reorder, remove, four-corner perspective crop and contrast enhancement, image/PDF export.
+- Full-screen crop editor: drag corners, drag an edge to slide it, drag inside the frame to move the whole selection, with a magnifier under the fingertip, a dimmed discard area, automatic edge detection, 90-degree rotation and fine-adjust nudges for precise or screen-reader use.
+- Quality warnings for possible blur, excessive brightness/darkness and content at the frame edge. These are heuristics requiring user review.
+- Bundled English OCR with page preparation: lighting is flattened, skew straightened and the page binarised before recognition, full-page layout analysis is enabled, the source resolution is declared, and pages that read poorly are retried in the other three orientations. Editable recognized text, local full-text search and editable suggested names.
+- Document, Receipt, Study and Book presets; receipt/study export runs OCR and assigns a folder.
+- Rectangle-based pixel redaction and image-only PDF export without the source PDF text/attachments.
+- Reviewed receipt records, separate currency totals, formula-safe CSV and PDF report with receipt images.
+- Added/removed text-line comparison, plus first-page visual difference image export.
+- Merge several documents into one PDF in an order you control, split a PDF by chosen pages / every N pages / each page, and save PDF pages as JPEG images.
+- Size-targeted PDF export tries bounded resolution/quality settings and reports actual results.
+- Book splitting with configurable spine, reading order, manual bow correction and previews.
+
+See [advanced workflow details and limits](docs/ADVANCED-FEATURES.md). These tools are implemented but require native build and device validation before production use. In particular, quality checks are not calibrated detectors, book correction is not automatic 3D dewarping, English is the only bundled OCR language, and exported image-only PDFs are not text-searchable.
+
+## Privacy and reliability
+
+No accounts, cloud uploads, ads, analytics, or document logging. OCR uses Tesseract4Android with a bundled model, not an online service. Documents and metadata stay in private app storage; AsyncStorage contains only preferences. Android cloud backup is disabled in the app configuration.
+
+Share important documents to a location you control: uninstalling the app removes its private library. Trash remains recoverable. Drafts remain after export until explicitly discarded. Native work runs on a serial worker, bounds image resolution and streams JPEG pages into PDFs. PDF workflows allow up to 300 pages and run in the foreground, with cooperative cancellation between steps. Processing does not continue after the app is killed.
+
+Redaction creates a new image-based representation; always inspect it before sharing sensitive information. Re-rasterizing existing PDFs does not preserve forms, signatures, links, selectable text or accessibility tags. Filesystem/database crash reconciliation, calibrated image-quality testing, large-input stress testing, and full accessibility/device coverage remain release gates.
+
+## Checks
 
 ```powershell
 npm.cmd run typecheck
@@ -60,4 +74,13 @@ npm.cmd run check
 npm.cmd run export:android
 ```
 
-See `docs/QA.md` for the device acceptance checklist and `docs/DEPENDENCIES.md` for dependency review. Passing TypeScript and bundling is not a substitute for Android device testing.
+The tests cover filename/file signatures, suggested and sequential export names, exact-cent money parsing, safe CSV, name suggestions, line comparison, valid crop geometry, PDF page-range and split planning, and literal-text placement in native layout containers.
+
+After Android prebuild, native tests can run on an emulator/device:
+
+```powershell
+cd android
+.\gradlew.bat :scandoc-engine:connectedDebugAndroidTest
+```
+
+Native tests exercise pixel replacement, generated PDF parsing/rendering, book splitting, image differences and OCR with the bundled model. See [QA checklist](docs/QA.md) and [dependency review](docs/DEPENDENCIES.md).

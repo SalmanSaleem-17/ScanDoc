@@ -1,16 +1,14 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
+  BackHandler,
   FlatList,
-  Modal,
   Pressable,
+  StyleSheet,
   TextInput,
   View,
 } from "react-native";
-import {
-  SafeAreaView,
-  useSafeAreaInsets,
-} from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import {
   Button,
@@ -25,43 +23,123 @@ import { useDocuments } from "../documents/provider";
 import type { LocalDocument } from "../../types/document";
 import { engineRequirement, hasEngine } from "../../services/engine";
 
+// The document picker is deliberately NOT a react-native Modal. A Modal is a
+// separate Android window, and that window does not inherit the activity's
+// status bar appearance, so its clock and icons stayed white and unreadable on
+// a light page. Setting statusBarTranslucent fixes the colour but makes Android
+// draw a second status bar at the bottom of the modal. Rendering the picker as
+// an overlay inside the app's own window avoids both problems: it reuses the
+// same insets and system bars as every other screen.
+const PickerContext = React.createContext<
+  ((onSelect: (document: LocalDocument) => void) => void) | null
+>(null);
+
 export function WorkspaceScreen({
   title,
   subtitle,
   children,
   native = false,
+  scroll = true,
 }: React.PropsWithChildren<{
   title: string;
   subtitle?: string;
   native?: boolean;
+  scroll?: boolean;
 }>) {
-  const insets = useSafeAreaInsets();
+  const [pick, setPick] = useState<{
+    onSelect: (document: LocalDocument) => void;
+  } | null>(null);
+  const { colors } = useTheme();
+  const { documents } = useDocuments();
+  // The overlay is a screen of its own as far as the user is concerned, so the
+  // Android back gesture must close it rather than leave the workflow.
+  useEffect(() => {
+    if (!pick) return;
+    const subscription = BackHandler.addEventListener(
+      "hardwareBackPress",
+      () => {
+        setPick(null);
+        return true;
+      },
+    );
+    return () => subscription.remove();
+  }, [pick]);
   return (
-    <Screen>
-      <Header
-        title={title}
-        subtitle={subtitle}
-        action={
-          <IconButton
-            name="close-outline"
-            label="Back"
-            onPress={() => router.back()}
+    <PickerContext.Provider
+      value={(onSelect) => setPick({ onSelect })}
+    >
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <Screen scroll={scroll}>
+          <Header
+            title={title}
+            subtitle={subtitle}
+            action={
+              <IconButton
+                name="close-outline"
+                label="Back"
+                onPress={() => router.back()}
+              />
+            }
           />
-        }
-      />
-      <View style={{ gap: 16, paddingBottom: insets.bottom }}>
-        {native && !hasEngine ? (
-          <Card>
-            <Label>{engineRequirement}</Label>
-            <Label style={{ marginTop: 12 }}>
-              Build command: npm run android
-            </Label>
-          </Card>
-        ) : (
-          children
+          <View style={{ gap: 16, flex: scroll ? undefined : 1 }}>
+            {native && !hasEngine ? (
+              <Card>
+                <Label>{engineRequirement}</Label>
+                <Label style={{ marginTop: 12 }}>
+                  Build command: npm run android
+                </Label>
+              </Card>
+            ) : (
+              children
+            )}
+          </View>
+        </Screen>
+        {pick && (
+          <View
+            style={[
+              StyleSheet.absoluteFill,
+              { backgroundColor: colors.background },
+            ]}
+          >
+            <SafeAreaView
+              style={{ flex: 1, padding: 20 }}
+              edges={["top", "bottom", "left", "right"]}
+            >
+              <Header
+                title="Choose a document"
+                action={
+                  <IconButton
+                    name="close-outline"
+                    label="Close picker"
+                    onPress={() => setPick(null)}
+                  />
+                }
+              />
+              <FlatList
+                data={documents.filter((d) => !d.trashedAt)}
+                keyExtractor={(d) => d.id}
+                ListEmptyComponent={
+                  <Label>Import or scan a document first.</Label>
+                }
+                renderItem={({ item }) => (
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => {
+                      pick.onSelect(item);
+                      setPick(null);
+                    }}
+                  >
+                    <Card style={{ marginBottom: 10 }}>
+                      <Label>{item.name}</Label>
+                    </Card>
+                  </Pressable>
+                )}
+              />
+            </SafeAreaView>
+          </View>
         )}
       </View>
-    </Screen>
+    </PickerContext.Provider>
   );
 }
 export function Field({
@@ -171,54 +249,12 @@ export function DocumentPicker({
   value?: LocalDocument;
   onSelect: (document: LocalDocument) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const { documents } = useDocuments();
-  const { colors } = useTheme();
+  const open = React.useContext(PickerContext);
   return (
-    <>
-      <Button
-        secondary
-        title={value ? `${title}: ${value.name}` : title}
-        onPress={() => setOpen(true)}
-      />
-      <Modal
-        visible={open}
-        onRequestClose={() => setOpen(false)}
-        animationType="slide"
-      >
-        <SafeAreaView
-          style={{ flex: 1, padding: 20, backgroundColor: colors.background }}
-        >
-          <Header
-            title="Choose a document"
-            action={
-              <IconButton
-                name="close-outline"
-                label="Close picker"
-                onPress={() => setOpen(false)}
-              />
-            }
-          />
-          <FlatList
-            data={documents.filter((d) => !d.trashedAt)}
-            keyExtractor={(d) => d.id}
-            ListEmptyComponent={<Label>Import or scan a document first.</Label>}
-            renderItem={({ item }) => (
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => {
-                  onSelect(item);
-                  setOpen(false);
-                }}
-              >
-                <Card style={{ marginBottom: 10 }}>
-                  <Label>{item.name}</Label>
-                </Card>
-              </Pressable>
-            )}
-          />
-        </SafeAreaView>
-      </Modal>
-    </>
+    <Button
+      secondary
+      title={value ? `${title}: ${value.name}` : title}
+      onPress={() => open?.(onSelect)}
+    />
   );
 }

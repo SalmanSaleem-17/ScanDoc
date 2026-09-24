@@ -11,7 +11,7 @@ import { useTheme } from "../../src/theme/provider";
 export default function Settings() {
   const { colors, mode, setMode } = useTheme();
   return (
-    <Screen>
+    <Screen tabScreen>
       <Header title="Settings" subtitle="Make ScanDoc feel like you." />
       <Section title="Appearance" />
       <Card style={{ paddingVertical: 4 }}>

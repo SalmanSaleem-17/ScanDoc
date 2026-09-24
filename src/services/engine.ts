@@ -6,6 +6,7 @@ import { Directory, Paths } from "expo-file-system";
 import * as Crypto from "expo-crypto";
 
 interface NativeEngine {
+  supportsLiveDetection?: boolean;
   process(operation: string, payload: string, id: string): Promise<string>;
   cancel(id: string): void;
   addListener(
@@ -15,9 +16,11 @@ interface NativeEngine {
 }
 const engine = requireOptionalNativeModule<NativeEngine>("ScanDocEngine");
 export const hasEngine = !!engine;
+export const hasLiveDetection = engine?.supportsLiveDetection === true;
 export const engineRequirement =
   "This tool needs the ScanDoc Android development build. Expo Go does not contain its offline OCR and document-processing engine.";
 export type EngineResult = {
+  corners?: number[];
   uri?: string;
   uris?: string[];
   text?: string;
@@ -29,6 +32,7 @@ export type EngineResult = {
   maxEdge?: number;
   quality?: number;
   changedPercent?: number;
+  rotation?: number;
 };
 export async function runEngine(
   operation: string,

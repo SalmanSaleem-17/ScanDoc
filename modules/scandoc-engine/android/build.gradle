@@ -1,0 +1,46 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+group = 'expo.modules.scandoc'
+version = '0.1.0'
+android {
+  namespace 'expo.modules.scandoc'
+  defaultConfig {
+    versionCode 1
+    versionName '0.1.0'
+    testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+  }
+  // React Native and OpenCV each ship the NDK C++ runtime. The app module
+  // resolves the collision through android.packagingOptions.pickFirsts in
+  // gradle.properties, but the instrumentation test APK is packaged by this
+  // module and needs the same rule to build.
+  packaging {
+    jniLibs {
+      pickFirsts += ['**/libc++_shared.so']
+    }
+  }
+}
+repositories { maven { url 'https://jitpack.io' } }
+dependencies {
+  implementation 'org.opencv:opencv:4.12.0'
+  implementation 'androidx.camera:camera-camera2:1.6.0'
+  implementation 'androidx.camera:camera-lifecycle:1.6.0'
+  implementation 'androidx.camera:camera-view:1.6.0'
+  // CameraX returns ListenableFuture, but Gradle resolves guava's marker
+  // artifact "9999.0-empty-to-avoid-conflict-with-guava", which contains no
+  // classes, so this module cannot compile against the type. The real class is
+  // supplied at runtime by com.google.guava:guava on the app's classpath, so it
+  // is needed for compilation only and must not be packaged again.
+  // Gradle resolves com.google.guava:listenablefuture to the empty marker
+  // artifact "9999.0-empty-to-avoid-conflict-with-guava", and the Expo module
+  // plugin's consistent resolution pins the compile classpath to that same
+  // empty jar, so the type cannot be compiled against. Guava itself carries the
+  // real class and is already on the app's runtime classpath (33.3.1-android),
+  // so it is required for compilation only and is not packaged again here.
+  compileOnly 'com.google.guava:guava:33.3.1-android'
+  implementation 'cz.adaptech.tesseract4android:tesseract4android:4.9.0'
+  implementation 'androidx.exifinterface:exifinterface:1.4.1'
+  androidTestImplementation 'androidx.test:runner:1.7.0'
+  androidTestImplementation 'androidx.test.ext:junit:1.3.0'
+}

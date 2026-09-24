@@ -1,9 +1,15 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Alert, Share } from "react-native";
 import { File, Directory, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import * as Crypto from "expo-crypto";
-import { Button, Card, Label } from "../src/components/ui";
+import {
+  Button,
+  Card,
+  Label,
+  SegmentedControl,
+  Toggle,
+} from "../src/components/ui";
 import {
   DocumentPicker,
   WorkspaceScreen,
@@ -14,14 +20,22 @@ import {
 import type { LocalDocument } from "../src/types/document";
 import { getText, saveText, putFolder } from "../src/services/workspace";
 import { renameDocument } from "../src/services/storage";
-import { recognizeDocument } from "../src/features/workflows/processing";
+import {
+  recognizeDocument,
+  type OcrLayout,
+} from "../src/features/workflows/processing";
 import { suggestName } from "../src/features/workflows/logic.mjs";
 import { useDocuments } from "../src/features/documents/provider";
 export default function Ocr() {
+  const selection = useRef("");
   const [document, setDocument] = useState<LocalDocument>();
   const [text, setText] = useState("");
   const [name, setName] = useState("");
   const [confidence, setConfidence] = useState<number>();
+  const [rotated, setRotated] = useState(0);
+  const [layout, setLayout] = useState<OcrLayout>("auto");
+  const [preprocess, setPreprocess] = useState(true);
+  const [autoRotate, setAutoRotate] = useState(true);
   const [folder, setFolder] = useState("");
   const task = useTask();
   const { refresh } = useDocuments();
@@ -36,14 +50,40 @@ export default function Ocr() {
         value={document}
         onSelect={(d) => {
           if (task.busy) return;
+          selection.current=d.id;
           setDocument(d);
           setConfidence(undefined);
+          setRotated(0);
           setName(d.name);
           setText("");
           void getText(d.id)
-            .then(setText)
+            .then(value => { if(selection.current===d.id) setText(value); })
             .catch(() => {});
         }}
+      />
+      <SegmentedControl<OcrLayout>
+        label="Page layout"
+        value={layout}
+        options={[
+          { value: "auto", title: "Automatic" },
+          { value: "block", title: "One block" },
+          { value: "sparse", title: "Scattered text" },
+        ]}
+        onChange={(value) => !task.busy && setLayout(value)}
+      />
+      <Toggle
+        label="Clean up the page first"
+        detail="Flattens shadows and uneven lighting, then straightens small skew. Recommended for photos."
+        value={preprocess}
+        disabled={task.busy}
+        onChange={setPreprocess}
+      />
+      <Toggle
+        label="Detect sideways or upside-down pages"
+        detail="Only runs when a page reads poorly, so it rarely costs extra time."
+        value={autoRotate}
+        disabled={task.busy}
+        onChange={setAutoRotate}
       />
       <TaskStatus task={task} />
       <Button
@@ -51,9 +91,15 @@ export default function Ocr() {
         disabled={!document || task.busy}
         onPress={() =>
           task.run(async (signal, progress) => {
-            const result = await recognizeDocument(document!, signal, progress);
+            const result = await recognizeDocument(document!, signal, progress, {
+              layout,
+              preprocess,
+              deskew: preprocess,
+              autoRotate,
+            });
             setText(result.text);
             setConfidence(result.confidence);
+            setRotated(result.rotated);
             setName(
               suggestName(
                 result.text,
@@ -71,13 +117,27 @@ export default function Ocr() {
         }
       />
       {confidence !== undefined && (
-        <Card>
-          <Label>
-            OCR confidence: {Math.round(confidence)}%.{" "}
-            {confidence < 60
-              ? "Text may be difficult to read. Check lighting, focus, and recognition mistakes."
-              : "Review names, dates, and numbers carefully."}
+        <Card style={{ gap: 8 }}>
+          <Label style={{ fontWeight: "600" }}>
+            {`Recognition score ${Math.round(confidence)} of 100.`}
           </Label>
+          <Label style={{ fontSize: 12 }}>
+            This is the engine's average certainty about the characters it
+            chose. It is not a measure of whether the text is correct: a
+            confident engine can still be wrong. Always check names, dates and
+            amounts against the page.
+          </Label>
+          {confidence < 60 && (
+            <Label style={{ fontSize: 12 }}>
+              A low score usually means poor lighting, focus or a page that is
+              not flat. Rescanning often helps more than editing.
+            </Label>
+          )}
+          {rotated > 0 && (
+            <Label style={{ fontSize: 12 }}>
+              {`${rotated} ${rotated === 1 ? "page was" : "pages were"} rotated automatically before reading.`}
+            </Label>
+          )}
         </Card>
       )}
       <Field

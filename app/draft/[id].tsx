@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { Alert, Image, View } from "react-native";
+import { Alert, FlatList, Image, View } from "react-native";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { Button, Card, Label } from "../../src/components/ui";
@@ -72,7 +72,7 @@ export default function DraftScreen() {
           ocr.clean();
         }
       }
-      if (draft.preset === "receipt" && text.trim()) title = suggestName(text);
+      if (draft.preset === "receipt" && text.trim() && name === draft.name) title = suggestName(text);
     }
     const output = await runEngine(
       "pdf",
@@ -107,8 +107,17 @@ export default function DraftScreen() {
   return (
     <WorkspaceScreen
       title="Arrange your pages"
+      scroll={false}
       subtitle={`${pages.length} pages · ${draft?.preset || "document"} workflow`}
     >
+      <FlatList
+        data={pages}
+        keyExtractor={page => page.id}
+        initialNumToRender={5}
+        windowSize={5}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ gap: 16 }}
+        ListHeaderComponent={<View style={{gap:16}}>
       <TaskStatus task={task} />
       <View style={{ gap: 10 }}>
         <Button
@@ -142,7 +151,9 @@ export default function DraftScreen() {
           }
         />
       </View>
-      {pages.map((page, index) => (
+
+</View>}
+        renderItem={({item:page,index}) => (
         <Card key={page.id} style={{ gap: 10 }}>
           <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
             <Image
@@ -219,7 +230,9 @@ export default function DraftScreen() {
             }
           />
         </Card>
-      ))}
+)}
+        ListFooterComponent={<View style={{gap:16}}>
+
       <Field label="PDF name" value={name} onChangeText={setName} />
       <Field
         label="Optional size target (MB)"
@@ -245,6 +258,9 @@ export default function DraftScreen() {
           }
         />
       )}
+
+</View>}
+      />
     </WorkspaceScreen>
   );
 }

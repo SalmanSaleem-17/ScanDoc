@@ -4,7 +4,6 @@ import * as ImagePicker from "expo-image-picker";
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import { File } from "expo-file-system";
 import { router } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   Button,
   Card,
@@ -22,7 +21,6 @@ import type { LocalDocument } from "../src/types/document";
 import { shareDocument } from "../src/features/documents/actions";
 export default function Compress() {
   const { colors } = useTheme();
-  const insets = useSafeAreaInsets();
   const { refresh } = useDocuments();
   const [asset, setAsset] = useState<ImagePicker.ImagePickerAsset>();
   const [quality, setQuality] = useState(0.7);
@@ -103,7 +101,7 @@ export default function Compress() {
           />
         }
       />
-      <View style={{ gap: 16, paddingBottom: insets.bottom }}>
+      <View style={{ gap: 16 }}>
         <Button
           title={asset ? "Choose another image" : "Choose an image"}
           icon="image-outline"

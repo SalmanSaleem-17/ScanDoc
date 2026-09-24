@@ -35,3 +35,15 @@ export function matchesHeader(name, bytes) {
     );
   return false;
 }
+// Readable, sortable, collision-resistant suggestions (local device time).
+export function timestampName(prefix, extension, date = new Date()) {
+  const pad = (value) => String(value).padStart(2, "0");
+  const day = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  const time = `${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
+  return `${prefix}_${day}_${time}.${extension}`;
+}
+// Numbers a set of exports so their order survives any file browser's sorting.
+export function sequenceName(base, index, total, extension) {
+  const width = Math.max(2, String(total).length);
+  return `${base}_${String(index).padStart(width, "0")}.${extension}`;
+}

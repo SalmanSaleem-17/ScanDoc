@@ -38,11 +38,12 @@ export function Icon({
 export function Screen({
   children,
   scroll = true,
-}: React.PropsWithChildren<{ scroll?: boolean }>) {
+  tabScreen = false,
+}: React.PropsWithChildren<{ scroll?: boolean; tabScreen?: boolean }>) {
   const { colors } = useTheme();
   return (
     <SafeAreaView
-      edges={["top", "left", "right"]}
+      edges={tabScreen ? ["top", "left", "right"] : ["top", "bottom", "left", "right"]}
       style={{ flex: 1, backgroundColor: colors.background }}
     >
       {scroll ? (
@@ -258,6 +259,120 @@ export function EmptyState({
       </Label>
       {action}
     </Card>
+  );
+}
+export function SegmentedControl<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: T;
+  options: { value: T; title: string }[];
+  onChange: (value: T) => void;
+}) {
+  const { colors } = useTheme();
+  return (
+    <View style={{ gap: 8 }} accessibilityRole="radiogroup">
+      <Label style={{ fontWeight: "600", fontSize: 13 }}>{label}</Label>
+      <View
+        style={{
+          flexDirection: "row",
+          flexWrap: "wrap",
+          gap: 8,
+        }}
+      >
+        {options.map((option) => {
+          const selected = option.value === value;
+          return (
+            <Pressable
+              key={option.value}
+              accessibilityRole="radio"
+              accessibilityState={{ selected }}
+              onPress={() => onChange(option.value)}
+              style={{
+                flexGrow: 1,
+                minWidth: 96,
+                minHeight: 46,
+                alignItems: "center",
+                justifyContent: "center",
+                paddingHorizontal: 14,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: selected ? colors.blue : colors.border,
+                backgroundColor: selected ? colors.tint : colors.surface,
+              }}
+            >
+              <Label
+                style={{
+                  fontSize: 13,
+                  fontWeight: selected ? "600" : "400",
+                  color: selected ? colors.blue : colors.text,
+                }}
+              >
+                {option.title}
+              </Label>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+export function Toggle({
+  label,
+  detail,
+  value,
+  onChange,
+  disabled,
+}: {
+  label: string;
+  detail?: string;
+  value: boolean;
+  onChange: (value: boolean) => void;
+  disabled?: boolean;
+}) {
+  const { colors } = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="switch"
+      accessibilityLabel={label}
+      accessibilityHint={detail}
+      accessibilityState={{ checked: value, disabled: !!disabled }}
+      disabled={disabled}
+      onPress={() => onChange(!value)}
+      style={({ pressed }) => ({
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+        minHeight: 48,
+        opacity: disabled ? 0.45 : pressed ? 0.75 : 1,
+      })}
+    >
+      <View
+        style={{
+          width: 24,
+          height: 24,
+          borderRadius: 7,
+          borderWidth: 2,
+          borderColor: value ? colors.blue : colors.border,
+          backgroundColor: value ? colors.blue : "transparent",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        {value && <Icon name="checkmark" size={15} color="#FFFFFF" />}
+      </View>
+      <View style={{ flex: 1 }}>
+        <Label style={{ fontSize: 14 }}>{label}</Label>
+        {detail && (
+          <Label style={{ fontSize: 12, color: colors.secondary }}>
+            {detail}
+          </Label>
+        )}
+      </View>
+    </Pressable>
   );
 }
 export function Loading({ text = "Opening your library…" }: { text?: string }) {

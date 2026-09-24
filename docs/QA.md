@@ -1,6 +1,6 @@
 # Android acceptance checklist
 
-Status: not yet executed on an emulator or physical device. No Android SDK/JDK was available on PATH in the implementation environment.
+Status: four native engine tests pass on an Android 14 emulator; TypeScript, eleven JavaScript tests and Android bundling pass. See VERIFICATION.md. The full UI/device acceptance checklist below remains pending.
 
 ## Foundation
 
@@ -25,6 +25,42 @@ Status: not yet executed on an emulator or physical device. No Android SDK/JDK w
 - Before/after sizes reflect actual files; larger output is reported honestly.
 - Original is preserved; compression result opens/shares; temporary output cleaned after failures.
 - Navigate away during processing, background app, then return; ensure no duplicate save.
+
+## System bars and safe areas
+
+- Check every screen with the app theme set to Light, Dark and System default, and separately with the *device* in the opposite mode to the app. The status bar clock and icons must stay legible against whatever the app paints behind them.
+- Open the document picker from each workflow screen; confirm the status bar remains readable and the Android back gesture closes the picker rather than leaving the screen.
+- Repeat on a device with a display cutout and on one with 3-button navigation.
+- Confirm no control is ever hidden behind the status bar or the navigation bar.
+
+## OCR
+
+- Compare recognition before and after "Clean up the page first" on real photographs: shadowed pages, grey recycled paper, a receipt, a page with columns and a faint carbon copy.
+- Confirm "One block" and "Scattered text" layouts behave differently on a multi-column page and on a page of labels.
+- Feed a sideways and an upside-down page with detection on and off; confirm the reported rotation matches what was applied.
+- Confirm a page with no readable text reports that honestly rather than returning noise.
+- Measure time per page at 3000px on a slow device, and confirm the 1800px fallback engages instead of crashing under memory pressure.
+- Cancel during recognition of a long document; confirm it stops between pages and saved text is not corrupted.
+- Confirm the recognition score is never presented as an accuracy guarantee.
+
+## Crop editor
+
+- Drag each corner and each edge to the image border and past it; the quad must stop at the edge and never invert or cross.
+- Pinch-free single-finger drag only: confirm the magnifier appears under a dragged corner, moves aside when the corner is beneath it, and hides on release.
+- Confirm the dimmed area always matches the discarded region, including for a strongly skewed quad.
+- Auto detect on a clear page, a low-contrast page and a blank wall; a failed detection must leave the current corners untouched and explain itself.
+- Rotate left/right repeatedly: the aspect ratio, corners and preview must stay consistent, the original photo must remain restorable, and no temporary file may be left in the cache.
+- Fine adjust with TalkBack: each corner is selectable and the nudge controls announce and move as labelled.
+- Very tall, very wide and near-square photos on a small phone and a tablet; portrait only.
+- Crop a page, then crop the result again; confirm the second crop maps to what is on screen.
+
+## PDF tools
+
+- Merge: two or more PDFs, PDFs mixed with images, a single document (blocked), a damaged/password-protected file (blocked with a reason, not skipped), reorder and remove entries, and a selection over 300 pages.
+- Split: extract ranges, every N pages and each page; invalid ranges beyond the page count; confirm the previewed file list matches what is saved.
+- PDF to images: all pages and chosen pages; confirm exported images are numbered in page order and the source PDF is unchanged.
+- Cancel part-way through a multi-file split and a long image export: already-saved files must remain and be reported, with no partial file left behind.
+- Background the app during each operation, then return; confirm no duplicate saves and no temporary files left in the cache.
 
 ## Release gates
 

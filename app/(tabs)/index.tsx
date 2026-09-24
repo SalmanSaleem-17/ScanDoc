@@ -23,7 +23,7 @@ export default function Home() {
   const { importDocuments, progress } = useImport();
   const recent = documents.filter((d) => !d.trashedAt).slice(0, 3);
   return (
-    <Screen>
+    <Screen tabScreen>
       <View
         style={{
           flexDirection: "row",
@@ -102,8 +102,9 @@ export default function Home() {
           </Label>
         </LinearGradient>
       </Pressable>
-      <View style={{ flexDirection: "row", gap: 12, marginTop: 14 }}>
-        <View style={{ flex: 1 }}>
+      <View style={{ gap: 12, marginTop: 14 }}>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
+        <View style={{ flex: 1, minWidth: 132 }}>
           <Button
             secondary
             title="Import files"
@@ -112,7 +113,7 @@ export default function Home() {
             disabled={!!progress}
           />
         </View>
-        <View style={{ flex: 1 }}>
+        <View style={{ flex: 1, minWidth: 132 }}>
           <Button
             secondary
             title="Compress"
@@ -124,10 +125,11 @@ export default function Home() {
       {progress && <Loading text={progress} />}
       <Button
         secondary
-        title="Resume scans & quick workflows"
+        title="Scan workspace"
         icon="layers-outline"
         onPress={() => router.push("/workspace")}
       />
+      </View>
       <Section
         title="Recent documents"
         action="See all"
@@ -163,7 +165,7 @@ export default function Home() {
           color={colors.success}
           size={26}
         />
-        <View style={{ flex: 1 }}>
+        <View style={{ flex: 1, minWidth: 132 }}>
           <Label style={{ fontWeight: "600", fontSize: 14 }}>
             Your documents stay on your device.
           </Label>

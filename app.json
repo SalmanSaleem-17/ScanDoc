@@ -41,7 +41,14 @@
       ],
       "expo-status-bar",
       "expo-sharing",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-navigation-bar",
+        {
+          "enforceContrast": false,
+          "hidden": false
+        }
+      ]
     ]
   }
 }

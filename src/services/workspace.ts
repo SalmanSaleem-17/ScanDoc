@@ -1,7 +1,8 @@
 import * as SQLite from "expo-sqlite";
 import * as Crypto from "expo-crypto";
-import { Directory, File, Paths } from "expo-file-system";
+import { Directory, File, FileMode, Paths } from "expo-file-system";
 import { importFile } from "./storage";
+import { matchesHeader } from "../utils/files.mjs";
 export type Preset = "document" | "receipt" | "study" | "book";
 export type Draft = {
   id: string;
@@ -32,6 +33,7 @@ export function workspaceDb() {
       await db.execAsync(`PRAGMA journal_mode=WAL;
       CREATE TABLE IF NOT EXISTS drafts (id TEXT PRIMARY KEY, name TEXT NOT NULL, preset TEXT NOT NULL, updatedAt INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS draft_pages (id TEXT PRIMARY KEY, draftId TEXT NOT NULL, path TEXT NOT NULL, position INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS draft_page_sources (pageId TEXT PRIMARY KEY, path TEXT NOT NULL);
       CREATE INDEX IF NOT EXISTS draft_page_order ON draft_pages(draftId,position);
       CREATE TABLE IF NOT EXISTS document_text (documentId TEXT PRIMARY KEY, text TEXT NOT NULL, updatedAt INTEGER NOT NULL);
       CREATE VIRTUAL TABLE IF NOT EXISTS document_search USING fts5(documentId UNINDEXED,text, tokenize='unicode61');
@@ -85,7 +87,12 @@ export function pageUri(page: DraftPage) {
 export async function addPage(draftId: string, uri: string) {
   const db = await workspaceDb();
   const id = Crypto.randomUUID();
-  const path = `${id}.jpg`;
+  const input = new File(uri);
+  const handle = input.open(FileMode.ReadOnly);
+  let extension: string | undefined;
+  try { const header = handle.readBytes(Math.min(12, input.size)); extension = ["jpg", "png", "webp"].find(ext => matchesHeader(`page.${ext}`, header)); } finally { handle.close(); }
+  if (!extension) throw new Error("Choose a JPEG, PNG, or WebP image.");
+  const path = `${id}.${extension}`;
   const output = new File(draftsDir, path);
   try {
     const source = new File(uri);
@@ -97,6 +104,8 @@ export async function addPage(draftId: string, uri: string) {
         !(await tx.getFirstAsync("SELECT id FROM drafts WHERE id=?", draftId))
       )
         throw new Error("Draft no longer exists.");
+      const count = await tx.getFirstAsync<{ count: number }>("SELECT COUNT(*) as count FROM draft_pages WHERE draftId=?",draftId);
+      if (count!.count >= 300) throw new Error("A draft supports up to 300 pages.");
       const row = await tx.getFirstAsync<{ position: number }>(
         "SELECT COALESCE(MAX(position),-1)+1 AS position FROM draft_pages WHERE draftId=?",
         draftId,
@@ -120,32 +129,44 @@ export async function addPage(draftId: string, uri: string) {
     throw error;
   }
 }
+export async function preservePageOriginal(page: DraftPage) {
+  await (await workspaceDb()).runAsync("INSERT OR IGNORE INTO draft_page_sources SELECT id,path FROM draft_pages WHERE id=?", page.id);
+}
+export async function originalPageUri(page: DraftPage) {
+  const source = await (await workspaceDb()).getFirstAsync<{path: string}>("SELECT path FROM draft_page_sources WHERE pageId=?", page.id);
+  return source ? new File(draftsDir, source.path).uri : undefined;
+}
 export async function replacePage(page: DraftPage, uri: string) {
   const db = await workspaceDb();
   const next = `${Crypto.randomUUID()}.jpg`;
   const output = new File(draftsDir, next);
   new File(uri).copy(output);
   try {
-    await db.runAsync(
+    const updated = await db.runAsync(
       "UPDATE draft_pages SET path=? WHERE id=?",
       next,
       page.id,
     );
+    if (!updated.changes) throw new Error("Page no longer exists.");
   } catch (error) {
     output.delete();
     throw error;
   }
   try {
-    new File(draftsDir, page.path).delete();
+    const source = await (await workspaceDb()).getFirstAsync<{path: string}>("SELECT path FROM draft_page_sources WHERE pageId=?", page.id);
+    if (source?.path !== page.path) new File(draftsDir, page.path).delete();
   } catch {}
 }
 export async function removePage(page: DraftPage) {
-  await (
-    await workspaceDb()
-  ).runAsync("DELETE FROM draft_pages WHERE id=?", page.id);
-  try {
-    new File(draftsDir, page.path).delete();
-  } catch {}
+  const db = await workspaceDb();
+  const source = await db.getFirstAsync<{path: string}>("SELECT path FROM draft_page_sources WHERE pageId=?", page.id);
+  await db.withExclusiveTransactionAsync(async tx => {
+    await tx.runAsync("DELETE FROM draft_page_sources WHERE pageId=?", page.id);
+    await tx.runAsync("DELETE FROM draft_pages WHERE id=?", page.id);
+  });
+  for (const path of new Set([page.path, source?.path].filter((p): p is string => !!p))) {
+    try { new File(draftsDir, path).delete(); } catch {}
+  }
 }
 export async function reorderPages(
   pages: DraftPage[],
@@ -168,17 +189,16 @@ export async function reorderPages(
   });
 }
 export async function discardDraft(id: string) {
+  const db = await workspaceDb();
   const pages = await listPages(id);
-  await (
-    await workspaceDb()
-  ).withExclusiveTransactionAsync(async (tx) => {
+  const sources = await db.getAllAsync<{path: string}>("SELECT s.path FROM draft_page_sources s JOIN draft_pages p ON p.id=s.pageId WHERE p.draftId=?", id);
+  await db.withExclusiveTransactionAsync(async tx => {
+    await tx.runAsync("DELETE FROM draft_page_sources WHERE pageId IN (SELECT id FROM draft_pages WHERE draftId=?)", id);
     await tx.runAsync("DELETE FROM draft_pages WHERE draftId=?", id);
     await tx.runAsync("DELETE FROM drafts WHERE id=?", id);
   });
-  for (const page of pages) {
-    try {
-      new File(draftsDir, page.path).delete();
-    } catch {}
+  for (const path of new Set([...pages, ...sources].map(p => p.path))) {
+    try { new File(draftsDir, path).delete(); } catch {}
   }
 }
 export async function saveText(documentId: string, text: string) {

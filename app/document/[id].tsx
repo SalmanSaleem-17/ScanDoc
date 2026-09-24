@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Alert, Image, TextInput, View } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   Button,
   Card,
@@ -26,7 +25,6 @@ export default function Document() {
   const { documents, refresh } = useDocuments();
   const document = documents.find((d) => d.id === id);
   const { colors } = useTheme();
-  const insets = useSafeAreaInsets();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
@@ -66,7 +64,7 @@ export default function Document() {
           />
         }
       />
-      <View style={{ paddingBottom: insets.bottom, gap: 16 }}>
+      <View style={{ gap: 16 }}>
         {document.kind === "image" ? (
           <Image
             source={{ uri: documentUri(document) }}

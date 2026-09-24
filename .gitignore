@@ -1,8 +1,8 @@
 node_modules/
 .expo/
 dist/
-android/
-ios/
+/android/
+/ios/
 *.jks
 *.keystore
 .env*
@@ -12,3 +12,6 @@ modules/**/android/build/
 modules/**/android/.gradle/
 emulator-test*.log
 *.tgz
+
+.local-build/
+scanner-emulator*.log

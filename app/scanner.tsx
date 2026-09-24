@@ -1,3 +1,6 @@
+import LiveScanner from "../src/features/scanner/LiveScanner";
+import { hasLiveDetection } from "../src/services/engine";
+import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef, useState } from "react";
 import { Alert, AppState, Linking, Pressable, View } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
@@ -112,8 +115,10 @@ export default function Scanner() {
         />
       </Screen>
     );
+  if (hasLiveDetection) return <LiveScanner draftId={draftId} />;
   return (
     <View style={{ flex: 1, backgroundColor: "#07111F" }}>
+      <StatusBar style="light" />
       {active && (
         <CameraView
           ref={camera}
@@ -175,7 +180,7 @@ export default function Scanner() {
           >
             {busy
               ? "Saving page to your draft…"
-              : "Align the page and hold steady. Each capture is saved as a draft."}
+              : "Manual capture. Live detection requires the updated ScanDoc Android build."}
           </Label>
           <Pressable
             accessibilityLabel="Capture document"

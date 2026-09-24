@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Alert } from "react-native";
 import { useFocusEffect, router } from "expo-router";
 import { Directory, File, Paths } from "expo-file-system";
@@ -34,6 +34,7 @@ import {
 import { runEngine, hasEngine } from "../src/services/engine";
 import { useDocuments } from "../src/features/documents/provider";
 export default function Receipts() {
+  const selection = useRef("");
   const [document, setDocument] = useState<LocalDocument>();
   const [merchant, setMerchant] = useState("");
   const [date, setDate] = useState("");
@@ -71,13 +72,14 @@ export default function Receipts() {
         value={document}
         onSelect={(d) => {
           if (task.busy) return;
+          selection.current=d.id;
           setDocument(d);
           setMerchant("");
           setDate("");
           setAmount("");
           void getReceipt(d.id)
             .then((row) => {
-              if (row) {
+              if (row && selection.current===d.id) {
                 setMerchant(row.merchant);
                 setDate(row.date);
                 setCurrency(row.currency);

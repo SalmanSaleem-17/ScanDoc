@@ -25,9 +25,11 @@ export default function Documents() {
   const [sort, setSort] = useState<"Recent" | "Name" | "Largest">("Recent");
   const [matches, setMatches] = useState<Record<string, string>>({});
   const [folderMap, setFolderMap] = useState<Record<string, string>>({});
+  const [indexRevision, setIndexRevision] = useState(0);
   const [indexError, setIndexError] = useState("");
   useFocusEffect(
     useCallback(() => {
+      setIndexRevision(value => value + 1);
       void folders()
         .then((rows) =>
           setFolderMap(
@@ -61,7 +63,7 @@ export default function Documents() {
       active = false;
       clearTimeout(timer);
     };
-  }, [query]);
+  }, [query, indexRevision]);
   const visible = useMemo(
     () =>
       documents
@@ -86,7 +88,7 @@ export default function Documents() {
     [documents, query, filter, sort, matches, folderMap],
   );
   return (
-    <Screen scroll={false}>
+    <Screen tabScreen scroll={false}>
       <Header
         title="Documents"
         subtitle={`${documents.filter((d) => !d.trashedAt).length} files · On this device`}
@@ -154,7 +156,7 @@ export default function Documents() {
           Sort: {sort} ↕
         </Label>
       </Pressable>
-      {progress && <Loading text={progress} />}{" "}
+      {progress && <Loading text={progress} />}
       {loading ? (
         <Loading />
       ) : error ? (

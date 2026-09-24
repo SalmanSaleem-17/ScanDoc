@@ -73,6 +73,30 @@ export default function Tools() {
       native: true,
     },
     {
+      name: "Merge PDFs",
+      detail: "Combine documents into one file, in your order",
+      group: "PDF & image",
+      icon: "git-merge-outline",
+      route: "/merge",
+      native: true,
+    },
+    {
+      name: "Split PDF",
+      detail: "Extract pages or break a document into parts",
+      group: "PDF & image",
+      icon: "cut-outline",
+      route: "/split",
+      native: true,
+    },
+    {
+      name: "PDF to images",
+      detail: "Save pages as JPEG files in your library",
+      group: "PDF & image",
+      icon: "images-outline",
+      route: "/pdf-to-image",
+      native: true,
+    },
+    {
       name: "Export size target",
       detail: "Try a smaller PDF for upload limits",
       group: "PDF & image",
@@ -92,7 +116,7 @@ export default function Tools() {
     `${item.name} ${item.detail}`.toLowerCase().includes(query.toLowerCase()),
   );
   return (
-    <Screen>
+    <Screen tabScreen>
       <Header
         title="A little less effort."
         subtitle="Practical tools. Private by default."
@@ -102,7 +126,7 @@ export default function Tools() {
         onChangeText={setQuery}
         placeholder="Search tools"
       />
-      {progress && <Loading text={progress} />}{" "}
+      {progress && <Loading text={progress} />}
       {!hasEngine && (
         <Card style={{ marginTop: 16 }}>
           <Label style={{ fontSize: 13 }}>
@@ -114,7 +138,7 @@ export default function Tools() {
       )}
       {["Scan & capture", "Document", "PDF & image"].map((group) => (
         <View key={group}>
-          {visible.some((t) => t.group === group) && <Section title={group} />}{" "}
+          {visible.some((t) => t.group === group) && <Section title={group} />}
           {visible
             .filter((t) => t.group === group)
             .map((tool) => (
