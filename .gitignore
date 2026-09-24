@@ -15,3 +15,7 @@ emulator-test*.log
 
 .local-build/
 scanner-emulator*.log
+
+# Signing material for local EAS credentials; the keystore itself is also matched by *.keystore
+credentials.json
+credentials/

@@ -30,6 +30,8 @@ npm.cmd config set cache "D:\npm-cache"
 
 `setx` only affects terminals opened afterwards, so close and reopen your terminal before building. Old caches left behind at `%USERPROFILE%\.gradle` and `%LOCALAPPDATA%\npm-cache` can then be deleted; Windows may keep a few lock files until a restart.
 
+Release builds are signed with a keystore you hold, not one EAS generates. `eas.json` sets `credentialsSource: "local"` on the `preview` and `production` profiles, so `eas build` reads `credentials.json` at the project root, which points at `credentials/android/release.keystore`. Both are gitignored and must exist on the machine that runs the build; the originals and the password file live outside the repository (see your own notes for the location). If EAS ever asks "Generate a new Android Keystore?", the answer is **no**: a build signed with a different key will not match the key registered in Google Play developer verification.
+
 For subsequent JavaScript changes:
 
 ```powershell
