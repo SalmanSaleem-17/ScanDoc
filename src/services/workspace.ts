@@ -1,6 +1,6 @@
-import * as SQLite from "expo-sqlite";
 import * as Crypto from "expo-crypto";
-import { Directory, File, FileMode, Paths } from "expo-file-system";
+import { File, FileMode, Paths } from "expo-file-system";
+import { openDatabase, draftsDir } from "./database";
 import { importFile } from "./storage";
 import { matchesHeader } from "../utils/files.mjs";
 export type Preset = "document" | "receipt" | "study" | "book";
@@ -23,29 +23,8 @@ export type Receipt = {
   currency: string;
   cents: number;
 };
-const draftsDir = new Directory(Paths.document, "ScanDoc", "Drafts");
-let connection: Promise<SQLite.SQLiteDatabase> | undefined;
-export function workspaceDb() {
-  if (!connection)
-    connection = (async () => {
-      draftsDir.create({ intermediates: true, idempotent: true });
-      const db = await SQLite.openDatabaseAsync("scandoc.db");
-      await db.execAsync(`PRAGMA journal_mode=WAL;
-      CREATE TABLE IF NOT EXISTS drafts (id TEXT PRIMARY KEY, name TEXT NOT NULL, preset TEXT NOT NULL, updatedAt INTEGER NOT NULL);
-      CREATE TABLE IF NOT EXISTS draft_pages (id TEXT PRIMARY KEY, draftId TEXT NOT NULL, path TEXT NOT NULL, position INTEGER NOT NULL);
-      CREATE TABLE IF NOT EXISTS draft_page_sources (pageId TEXT PRIMARY KEY, path TEXT NOT NULL);
-      CREATE INDEX IF NOT EXISTS draft_page_order ON draft_pages(draftId,position);
-      CREATE TABLE IF NOT EXISTS document_text (documentId TEXT PRIMARY KEY, text TEXT NOT NULL, updatedAt INTEGER NOT NULL);
-      CREATE VIRTUAL TABLE IF NOT EXISTS document_search USING fts5(documentId UNINDEXED,text, tokenize='unicode61');
-      CREATE TABLE IF NOT EXISTS document_folders (documentId TEXT PRIMARY KEY, folder TEXT NOT NULL);
-      CREATE TABLE IF NOT EXISTS receipts (documentId TEXT PRIMARY KEY, merchant TEXT NOT NULL, date TEXT NOT NULL, currency TEXT NOT NULL, cents INTEGER NOT NULL);`);
-      return db;
-    })().catch((error) => {
-      connection = undefined;
-      throw error;
-    });
-  return connection;
-}
+// One connection and one schema for the whole app; see database.ts.
+export const workspaceDb = openDatabase;
 export async function listDrafts() {
   return (await workspaceDb()).getAllAsync<Draft>(
     "SELECT * FROM drafts ORDER BY updatedAt DESC",
@@ -98,7 +77,11 @@ export async function addPage(draftId: string, uri: string) {
     const source = new File(uri);
     if (Paths.availableDiskSpace < source.size + 10 * 1024 * 1024)
       throw new Error("Not enough storage.");
-    source.copy(output);
+    // copy() is asynchronous on the native side. Without the await the row
+    // was inserted, the caller returned and the camera's temporary file was
+    // deleted while the copy was still running, which failed the capture on
+    // slower devices. The file must exist before anything refers to it.
+    await source.copy(output);
     await db.withExclusiveTransactionAsync(async (tx) => {
       if (
         !(await tx.getFirstAsync("SELECT id FROM drafts WHERE id=?", draftId))
@@ -140,7 +123,14 @@ export async function replacePage(page: DraftPage, uri: string) {
   const db = await workspaceDb();
   const next = `${Crypto.randomUUID()}.jpg`;
   const output = new File(draftsDir, next);
-  new File(uri).copy(output);
+  try {
+    await new File(uri).copy(output);
+  } catch (error) {
+    try {
+      if (output.exists) output.delete();
+    } catch {}
+    throw error;
+  }
   try {
     const updated = await db.runAsync(
       "UPDATE draft_pages SET path=? WHERE id=?",

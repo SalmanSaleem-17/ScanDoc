@@ -26,7 +26,25 @@ Status: four native engine tests pass on an Android 14 emulator; TypeScript, ele
 - Original is preserved; compression result opens/shares; temporary output cleaned after failures.
 - Navigate away during processing, background app, then return; ensure no duplicate save.
 
+## Capture and import on slow devices
+
+- In Expo Go (no native engine) and in the development build, capture a page, then immediately capture another; both must appear in the draft with their images intact.
+- Import several files at once from the picker; every imported file must open. A row with a missing file is a failure.
+- Replace a page (rotate in the editor) and confirm the previous image is gone and the new one opens.
+
+## Storage and trash
+
+- Move a document to Trash, then check Documents (Trash filter) shows the retention note and Empty trash; the Document screen shows days remaining, Restore and Delete forever.
+- Delete forever: the file is gone from the ScanDoc folder, it no longer appears in search results, any receipt for it is gone, and Settings storage counts drop accordingly.
+- Set the device clock 31 days ahead, relaunch: trashed items are removed and live items untouched. Set it back.
+- Settings Storage: counts and sizes match the library; Empty trash now is hidden when the trash is empty.
+- Install over a build from before database versioning: the library opens, drafts and search still work (baseline migration is idempotent).
+- PDF cards show a first-page preview after a moment; image cards show the image; with the engine absent (Expo Go) PDFs show the icon and nothing errors.
+- Pull down on Documents to refresh; the Sort by control changes order immediately.
+
 ## System bars and safe areas
+
+- In Expo Go and in a built app, in light mode: the status bar area must show the page background with dark icons, never an opaque black strip. Check with gesture navigation and with 3-button navigation.
 
 - Check every screen with the app theme set to Light, Dark and System default, and separately with the *device* in the opposite mode to the app. The status bar clock and icons must stay legible against whatever the app paints behind them.
 - Open the document picker from each workflow screen; confirm the status bar remains readable and the Android back gesture closes the picker rather than leaving the screen.

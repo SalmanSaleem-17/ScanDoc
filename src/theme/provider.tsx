@@ -11,6 +11,8 @@ const light = {
   tint: "#EAF2FF",
   navy: "#061A40",
   success: "#087F50",
+  danger: "#B42318",
+  dangerTint: "#FEE4E2",
 };
 const dark: typeof light = {
   background: "#07111F",
@@ -22,6 +24,8 @@ const dark: typeof light = {
   tint: "#142D4D",
   navy: "#061A40",
   success: "#56DCA0",
+  danger: "#F97066",
+  dangerTint: "#3A1D1D",
 };
 type Mode = "system" | "light" | "dark";
 const Context = createContext({

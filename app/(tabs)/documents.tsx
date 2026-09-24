@@ -1,8 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { FlatList, Pressable, ScrollView, View } from "react-native";
+import {
+  Alert,
+  FlatList,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  View,
+} from "react-native";
 import { useFocusEffect } from "expo-router";
 import {
   Button,
+  Card,
   EmptyState,
   Header,
   IconButton,
@@ -10,12 +18,15 @@ import {
   Loading,
   Screen,
   SearchBar,
+  SegmentedControl,
 } from "../../src/components/ui";
 import { useTheme } from "../../src/theme/provider";
 import { useDocuments } from "../../src/features/documents/provider";
 import { DocumentCard } from "../../src/features/documents/DocumentCard";
 import { useImport } from "../../src/features/documents/useImport";
 import { searchText, folders } from "../../src/services/workspace";
+import { emptyTrash } from "../../src/services/storage";
+import { TRASH_RETENTION_DAYS } from "../../src/services/library.mjs";
 export default function Documents() {
   const { colors } = useTheme();
   const { documents, loading, error, refresh } = useDocuments();
@@ -27,6 +38,38 @@ export default function Documents() {
   const [folderMap, setFolderMap] = useState<Record<string, string>>({});
   const [indexRevision, setIndexRevision] = useState(0);
   const [indexError, setIndexError] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
+  async function onRefresh() {
+    setRefreshing(true);
+    try {
+      await refresh();
+      setIndexRevision((value) => value + 1);
+    } finally {
+      setRefreshing(false);
+    }
+  }
+  function confirmEmptyTrash() {
+    Alert.alert(
+      "Empty trash?",
+      "Every document in the Trash is deleted from this device, along with its recognized text. This cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Empty trash",
+          style: "destructive",
+          onPress: () =>
+            void emptyTrash()
+              .then(() => refresh())
+              .catch(() =>
+                Alert.alert(
+                  "Could not empty the trash",
+                  "Some files may still be in use. Try again in a moment.",
+                ),
+              ),
+        },
+      ],
+    );
+  }
   useFocusEffect(
     useCallback(() => {
       setIndexRevision(value => value + 1);
@@ -138,24 +181,32 @@ export default function Documents() {
         </ScrollView>
       </View>
       {!!indexError && <Label>{indexError}</Label>}
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`Sort by ${sort}. Tap to change.`}
-        onPress={() =>
-          setSort(
-            sort === "Recent" ? "Name" : sort === "Name" ? "Largest" : "Recent",
-          )
-        }
-        style={{
-          minHeight: 44,
-          justifyContent: "center",
-          alignSelf: "flex-end",
-        }}
-      >
-        <Label style={{ fontSize: 12, color: colors.secondary }}>
-          Sort: {sort} ↕
-        </Label>
-      </Pressable>
+      <SegmentedControl<"Recent" | "Name" | "Largest">
+        label="Sort by"
+        value={sort}
+        options={[
+          { value: "Recent", title: "Recent" },
+          { value: "Name", title: "Name" },
+          { value: "Largest", title: "Largest" },
+        ]}
+        onChange={setSort}
+      />
+      {filter === "Trash" && (
+        <Card style={{ marginTop: 12, gap: 10 }}>
+          <Label style={{ fontSize: 13, color: colors.secondary }}>
+            {`Items in Trash are removed automatically after ${TRASH_RETENTION_DAYS} days. Restore anything you still need.`}
+          </Label>
+          {documents.some((d) => d.trashedAt) && (
+            <Button
+              title="Empty trash"
+              icon="trash-outline"
+              destructive
+              onPress={confirmEmptyTrash}
+            />
+          )}
+        </Card>
+      )}
+      <View style={{ height: 12 }} />
       {progress && <Loading text={progress} />}
       {loading ? (
         <Loading />
@@ -169,6 +220,14 @@ export default function Documents() {
         <FlatList
           data={visible}
           keyExtractor={(d) => d.id}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.blue}
+              colors={[colors.blue]}
+            />
+          }
           renderItem={({ item }) => (
             <View>
               <DocumentCard document={item} />

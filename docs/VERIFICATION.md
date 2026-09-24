@@ -42,6 +42,68 @@ The app was built, installed and driven on a Pixel 7 API 34 emulator to check li
 
 Still open from that session: with the full-screen picker overlay visible, the emulator's screenshot shows a second status bar row near the bottom of the screen. It does not appear on any ordinary screen, it did not appear with the previous Modal, and it could not be attributed; check it on a physical device before release.
 
-Not yet verified: complete UI flows on a physical phone, camera image-quality calibration, real receipt extraction accuracy, complex book curvature, 50/100/300-page stress tests, low-storage/process-kill fault injection, all accessibility configurations, ARM device builds, or a release APK. OCR accuracy has never been measured against real documents, only synthetic printed text; the new preparation pipeline, orientation probe, layout modes and memory fallback are all unrun. The crop editor has not been run on hardware: dragging, the magnifier, rotation, automatic detection and TalkBack use of the fine-adjust controls all remain device-acceptance items. Merge/split/PDF-to-image have not been run against real multi-page PDFs on hardware, including the 300-page limit, cancellation part-way through a multi-file split, and low-storage behaviour. This is development functionality, not a production-readiness certification.
+The app has been run on a physical Android phone through the Expo dev client.
+That exercises the real camera, real touch input and real device performance,
+which the emulator could not. It is not equivalent to a release build: the dev
+client loads JavaScript from Metro rather than the embedded Hermes bundle, runs
+with __DEV__ true, and was built for a single architecture. Which flows were
+exercised on that phone, and what they produced, is not recorded here.
+
+The light-mode "black strip at the top" reported from a phone was reproduced
+in Expo Go on the emulator with 3-button navigation and diagnosed on the
+device rather than by reasoning. Measured from inside the running app, the top
+safe-area inset in Expo Go is the full status-bar height (51.8dp on the
+emulator), so the layout is already edge-to-edge; what Expo Go leaves wrong is
+the bar's own background, which stays opaque black. Built apps get a
+transparent bar from the platform's mandatory edge-to-edge window (prebuild
+rejects any attempt to configure it otherwise), which is why the development
+build never showed it. The root layout now sets the Android status bar
+translucent and transparent on mount; in built apps React Native ignores those
+calls with a native log line, in Expo Go they take effect. The deprecated
+androidStatusBar manifest field was tried and is ignored by Expo Go 57, so it
+is not used. Before-and-after screenshots were taken in Expo Go in light and
+dark mode. An earlier round of "after" screenshots was invalid because the
+emulator was being served a stale bundle by a Metro instance whose file
+watcher had stopped; the check that the device runs current code is now part
+of the routine.
+
+A capture failure reported from Expo Go on a physical phone ("FileSystemFile.copy
+has been rejected ... NoSuchFileException" on the camera's temporary file) was
+traced to a race, not to Expo Go: expo-file-system 57 registers File.copy() and
+File.move() as asynchronous native functions, and the app called them without
+awaiting in five places (adding a page, replacing a page, importing a file,
+splitting a page and caching a preview). The caller therefore inserted the
+database row, returned, and deleted the camera's temporary file while the copy
+was still running; on a fast development device the copy usually finished
+first, which is why it had not shown up before. Every call is now awaited, with
+the file written before any row refers to it, and tests/async-file-ops.test.mjs
+fails the suite if an un-awaited copy or move is ever reintroduced.
+
+The first `eas build --profile production` failed before uploading anything
+with `ENOENT ... expo-module-gradle-plugin/bin/.gradle/8.9/gc.properties`
+while computing the project fingerprint. A Gradle daemon was writing its cache
+inside that included build at the same moment the fingerprint walk read it;
+the default ignore list covers the plugin's `build/` but not its `.gradle/`.
+A `.fingerprintignore` now excludes those caches (and the local emulator and
+export folders), and `fingerprint:generate --platform android` was run
+locally to confirm it completes and includes no Gradle cache files.
+
+Storage hygiene: a single versioned database opener replaced two independent
+openers, and permanent deletion, Empty trash and 30-day retention were added.
+The migration planner and retention boundary are unit tested (tests/library.test.mjs);
+the runtime paths (opening an existing database, deleting a document and its
+related rows and preview, the launch purge) have not yet been exercised on a
+device and are recorded as pending below until they are.
+
+Not yet verified: behaviour in a release build, the storage hygiene runtime paths above, ARM device builds, camera
+image-quality calibration, real receipt extraction accuracy, complex book
+curvature, 50/100/300-page stress tests, low-storage and process-kill fault
+injection, and accessibility configurations including TalkBack. OCR accuracy has
+never been measured against real documents, only synthetic printed text, so the
+preparation pipeline, orientation probe, layout modes and memory fallback have no
+measured accuracy on real pages. The crop editor's dragging, magnifier, rotation
+and fine-adjust controls, and merge/split/PDF-to-image against real multi-page
+PDFs including the 300-page limit and cancellation part-way through, have no
+recorded results. This is development functionality, not a production-readiness certification.
 
 The reported React Native `Text strings must be rendered within a <Text> component` error was caused by three explicit whitespace children in Documents/Tools. Those children were removed; the source regression test checks every app/src TSX file for literal text in non-text containers.

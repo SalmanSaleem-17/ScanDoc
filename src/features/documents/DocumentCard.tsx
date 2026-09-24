@@ -2,11 +2,12 @@ import { Pressable, View, Image } from "react-native";
 import { router } from "expo-router";
 import { Card, Icon, Label } from "../../components/ui";
 import { useTheme } from "../../theme/provider";
-import { documentUri } from "../../services/storage";
+import { usePreview } from "./thumbnails";
 import { formatBytes } from "../../utils/files.mjs";
 import type { LocalDocument } from "../../types/document";
 export function DocumentCard({ document }: { document: LocalDocument }) {
   const { colors } = useTheme();
+  const preview = usePreview(document);
   return (
     <Pressable
       accessibilityRole="button"
@@ -35,9 +36,9 @@ export function DocumentCard({ document }: { document: LocalDocument }) {
             overflow: "hidden",
           }}
         >
-          {document.kind === "image" ? (
+          {preview ? (
             <Image
-              source={{ uri: documentUri(document) }}
+              source={{ uri: preview }}
               resizeMode="cover"
               style={{ width: 46, height: 58 }}
             />

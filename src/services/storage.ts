@@ -1,40 +1,12 @@
-import { Directory, File, FileMode, Paths } from "expo-file-system";
-import * as SQLite from "expo-sqlite";
+import { File, FileMode, Paths } from "expo-file-system";
 import * as Crypto from "expo-crypto";
 import type { LocalDocument } from "../types/document";
 import { cleanName, fileKind, matchesHeader } from "../utils/files.mjs";
+import { expiredTrash } from "./library.mjs";
+import { openDatabase, root, thumbsDir } from "./database";
 
-const root = new Directory(Paths.document, "ScanDoc");
-let database: Promise<SQLite.SQLiteDatabase> | undefined;
-async function db() {
-  if (!database)
-    database = (async () => {
-      root.create({ idempotent: true, intermediates: true });
-      for (const folder of [
-        "Scans",
-        "PDF",
-        "Images",
-        "Compressed",
-        "OCR",
-        "Exports",
-      ])
-        new Directory(root, folder).create({ idempotent: true });
-      const connection = await SQLite.openDatabaseAsync("scandoc.db");
-      await connection.execAsync(`PRAGMA journal_mode = WAL;
-      CREATE TABLE IF NOT EXISTS documents (
-        id TEXT PRIMARY KEY NOT NULL, name TEXT NOT NULL, kind TEXT NOT NULL,
-        path TEXT NOT NULL UNIQUE, size INTEGER NOT NULL, createdAt INTEGER NOT NULL,
-        updatedAt INTEGER NOT NULL, pageCount INTEGER, source TEXT NOT NULL, trashedAt INTEGER
-      ); CREATE INDEX IF NOT EXISTS document_updated ON documents(updatedAt DESC); PRAGMA user_version = 1;`);
-      return connection;
-    })().catch((error) => {
-      database = undefined;
-      throw error;
-    });
-  return database;
-}
 export async function listDocuments() {
-  return (await db()).getAllAsync<LocalDocument>(
+  return (await openDatabase()).getAllAsync<LocalDocument>(
     "SELECT * FROM documents ORDER BY updatedAt DESC",
   );
 }
@@ -46,7 +18,7 @@ export async function importFile(
   name: string,
   source: LocalDocument["source"] = "import",
 ) {
-  const connection = await db();
+  const connection = await openDatabase();
   const kind = fileKind(name);
   const input = new File(uri);
   if (!input.exists || !input.size)
@@ -75,7 +47,8 @@ export async function importFile(
   const path = `${folder}/${id}.${extension}`;
   const output = new File(root, path);
   try {
-    input.copy(output);
+    // Asynchronous natively; the row below must not exist before the file.
+    await input.copy(output);
     const now = Date.now();
     const document: LocalDocument = {
       id,
@@ -110,7 +83,7 @@ export async function importFile(
 }
 export async function renameDocument(id: string, name: string) {
   await (
-    await db()
+    await openDatabase()
   ).runAsync(
     "UPDATE documents SET name = ?, updatedAt = ? WHERE id = ?",
     cleanName(name),
@@ -120,11 +93,58 @@ export async function renameDocument(id: string, name: string) {
 }
 export async function trashDocument(id: string, restore = false) {
   await (
-    await db()
+    await openDatabase()
   ).runAsync(
     "UPDATE documents SET trashedAt = ?, updatedAt = ? WHERE id = ?",
     restore ? null : Date.now(),
     Date.now(),
     id,
   );
+}
+/**
+ * Removes a document and every row that referred to it in one transaction:
+ * recognised text, its search index entry, its folder and any receipt. The
+ * tables have no foreign keys, so nothing else would clean these up, and a
+ * search hit pointing at a deleted file is worse than no hit. The file itself
+ * is removed after the commit; if that fails the row is already gone, so the
+ * worst case is an orphaned file rather than a listed document with no file.
+ */
+export async function deleteDocumentForever(id: string) {
+  const db = await openDatabase();
+  const row = await db.getFirstAsync<{ path: string }>(
+    "SELECT path FROM documents WHERE id = ?",
+    id,
+  );
+  if (!row) return false;
+  await db.withExclusiveTransactionAsync(async (tx) => {
+    await tx.runAsync("DELETE FROM document_search WHERE documentId = ?", id);
+    await tx.runAsync("DELETE FROM document_text WHERE documentId = ?", id);
+    await tx.runAsync("DELETE FROM document_folders WHERE documentId = ?", id);
+    await tx.runAsync("DELETE FROM receipts WHERE documentId = ?", id);
+    await tx.runAsync("DELETE FROM documents WHERE id = ?", id);
+  });
+  for (const file of [new File(root, row.path), new File(thumbsDir, `${id}.jpg`)])
+    try {
+      if (file.exists) file.delete();
+    } catch {}
+  return true;
+}
+/** Permanently deletes everything in the trash. Returns how many were removed. */
+export async function emptyTrash() {
+  const rows = await (
+    await openDatabase()
+  ).getAllAsync<{ id: string }>(
+    "SELECT id FROM documents WHERE trashedAt IS NOT NULL",
+  );
+  for (const row of rows) await deleteDocumentForever(row.id);
+  return rows.length;
+}
+/**
+ * Applies the trash retention policy. Called once per launch; the policy
+ * itself lives in library.mjs so its boundary is unit tested.
+ */
+export async function purgeExpiredTrash(now = Date.now()) {
+  const expired = expiredTrash(await listDocuments(), now);
+  for (const document of expired) await deleteDocumentForever(document.id);
+  return expired.length;
 }

@@ -13,6 +13,7 @@ import {
 } from "../../src/components/ui";
 import { useDocuments } from "../../src/features/documents/provider";
 import {
+  deleteDocumentForever,
   documentUri,
   renameDocument,
   trashDocument,
@@ -20,6 +21,7 @@ import {
 import { shareDocument } from "../../src/features/documents/actions";
 import { useTheme } from "../../src/theme/provider";
 import { formatBytes } from "../../src/utils/files.mjs";
+import { daysUntilPurge } from "../../src/services/library.mjs";
 export default function Document() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { documents, refresh } = useDocuments();
@@ -153,12 +155,45 @@ export default function Document() {
           }}
         />
         {document.trashedAt ? (
-          <Button
-            title="Restore document"
-            secondary
-            disabled={busy}
-            onPress={() => perform(() => trashDocument(document.id, true))}
-          />
+          <Card style={{ gap: 12 }}>
+            <Label style={{ color: colors.secondary, fontSize: 13 }}>
+              {(() => {
+                const days = daysUntilPurge(document.trashedAt);
+                return `In Trash · removed automatically in ${days} ${days === 1 ? "day" : "days"}.`;
+              })()}
+            </Label>
+            <Button
+              title="Restore document"
+              icon="refresh-outline"
+              secondary
+              disabled={busy}
+              onPress={() => perform(() => trashDocument(document.id, true))}
+            />
+            <Button
+              title="Delete forever"
+              icon="trash-outline"
+              destructive
+              disabled={busy}
+              onPress={() =>
+                Alert.alert(
+                  "Delete forever?",
+                  "This removes the file and its recognized text from this device. It cannot be undone.",
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    {
+                      text: "Delete forever",
+                      style: "destructive",
+                      onPress: () =>
+                        perform(async () => {
+                          await deleteDocumentForever(document.id);
+                          router.back();
+                        }),
+                    },
+                  ],
+                )
+              }
+            />
+          </Card>
         ) : (
           <Button
             title="Move to Trash"

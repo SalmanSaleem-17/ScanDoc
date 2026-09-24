@@ -12,6 +12,7 @@ import {
   Loading,
   Screen,
   Section,
+  type IconName,
 } from "../../src/components/ui";
 import { useTheme } from "../../src/theme/provider";
 import { useDocuments } from "../../src/features/documents/provider";
@@ -22,6 +23,23 @@ export default function Home() {
   const { documents, loading, error, refresh } = useDocuments();
   const { importDocuments, progress } = useImport();
   const recent = documents.filter((d) => !d.trashedAt).slice(0, 3);
+  // The four things people come back for, one tap from the top of Home.
+  const quickActions: {
+    title: string;
+    icon: IconName;
+    onPress: () => void;
+    disabled?: boolean;
+  }[] = [
+    {
+      title: "Import files",
+      icon: "download-outline",
+      onPress: importDocuments,
+      disabled: !!progress,
+    },
+    { title: "Read text", icon: "text-outline", onPress: () => router.push("/ocr") },
+    { title: "Merge PDFs", icon: "git-merge-outline", onPress: () => router.push("/merge") },
+    { title: "Compress", icon: "contract-outline", onPress: () => router.push("/compress") },
+  ];
   return (
     <Screen tabScreen>
       <View
@@ -103,32 +121,29 @@ export default function Home() {
         </LinearGradient>
       </Pressable>
       <View style={{ gap: 12, marginTop: 14 }}>
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
-        <View style={{ flex: 1, minWidth: 132 }}>
-          <Button
-            secondary
-            title="Import files"
-            icon="download-outline"
-            onPress={importDocuments}
-            disabled={!!progress}
-          />
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
+          {quickActions.map((action) => (
+            <View
+              key={action.title}
+              style={{ flexBasis: "46%", flexGrow: 1, minWidth: 132 }}
+            >
+              <Button
+                secondary
+                title={action.title}
+                icon={action.icon}
+                onPress={action.onPress}
+                disabled={action.disabled}
+              />
+            </View>
+          ))}
         </View>
-        <View style={{ flex: 1, minWidth: 132 }}>
-          <Button
-            secondary
-            title="Compress"
-            icon="contract-outline"
-            onPress={() => router.push("/compress")}
-          />
-        </View>
-      </View>
-      {progress && <Loading text={progress} />}
-      <Button
-        secondary
-        title="Scan workspace"
-        icon="layers-outline"
-        onPress={() => router.push("/workspace")}
-      />
+        {progress && <Loading text={progress} />}
+        <Button
+          secondary
+          title="Scan workspace"
+          icon="layers-outline"
+          onPress={() => router.push("/workspace")}
+        />
       </View>
       <Section
         title="Recent documents"

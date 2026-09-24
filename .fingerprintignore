@@ -1,0 +1,12 @@
+# Gradle writes its own caches next to the expo-module-gradle-plugin included
+# build while native builds and EAS fingerprinting run. Those files are
+# transient and can vanish between the directory listing and the read, which
+# made `eas build` fail with ENOENT on gc.properties. They say nothing about
+# the native fingerprint, so they are excluded.
+node_modules/expo-modules-core/expo-module-gradle-plugin/.gradle/**
+node_modules/expo-modules-core/expo-module-gradle-plugin/bin/.gradle/**
+node_modules/expo-modules-core/expo-module-gradle-plugin/build/**
+node_modules/**/android/.gradle/**
+# Local emulator, build and cache folders that never ship.
+.local-build/**
+dist/**

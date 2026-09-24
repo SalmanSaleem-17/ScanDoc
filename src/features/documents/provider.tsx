@@ -6,7 +6,7 @@ import React, {
   useState,
 } from "react";
 import type { LocalDocument } from "../../types/document";
-import { listDocuments } from "../../services/storage";
+import { listDocuments, purgeExpiredTrash } from "../../services/storage";
 const Context = createContext({
   documents: [] as LocalDocument[],
   loading: true,
@@ -28,7 +28,11 @@ export function DocumentsProvider({ children }: React.PropsWithChildren) {
     }
   }, []);
   useEffect(() => {
-    void refresh();
+    // Retention runs before the first listing so expired items never flash
+    // into view. A purge failure must not stop the library from opening.
+    purgeExpiredTrash()
+      .catch(() => {})
+      .finally(() => void refresh());
   }, [refresh]);
   return (
     <Context.Provider value={{ documents, loading, error, refresh }}>

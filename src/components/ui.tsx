@@ -100,12 +100,15 @@ export function Button({
   onPress,
   icon,
   secondary,
+  destructive,
   disabled,
 }: {
   title: string;
   onPress: () => void;
   icon?: IconName;
   secondary?: boolean;
+  /** Tinted red: for actions that remove data and cannot be undone. */
+  destructive?: boolean;
   disabled?: boolean;
 }) {
   const { colors } = useTheme();
@@ -118,16 +121,27 @@ export function Button({
       style={({ pressed }) => [
         styles.button,
         {
-          backgroundColor: secondary ? colors.tint : "#075FE4",
+          backgroundColor: destructive
+            ? colors.dangerTint
+            : secondary
+              ? colors.tint
+              : "#075FE4",
           opacity: disabled ? 0.45 : pressed ? 0.75 : 1,
         },
       ]}
     >
       {icon && (
-        <Icon name={icon} color={secondary ? colors.blue : "white"} size={20} />
+        <Icon
+          name={icon}
+          color={destructive ? colors.danger : secondary ? colors.blue : "white"}
+          size={20}
+        />
       )}
       <Label
-        style={{ color: secondary ? colors.blue : "white", fontWeight: "600" }}
+        style={{
+          color: destructive ? colors.danger : secondary ? colors.blue : "white",
+          fontWeight: "600",
+        }}
       >
         {title}
       </Label>
@@ -209,6 +223,7 @@ export function Section({
   action?: string;
   onPress?: () => void;
 }) {
+  const { colors } = useTheme();
   return (
     <View style={[styles.header, { marginTop: 26, marginBottom: 14 }]}>
       <Label
@@ -223,7 +238,7 @@ export function Section({
           accessibilityRole="button"
           style={{ minHeight: 44, justifyContent: "center" }}
         >
-          <Label style={{ color: "#168BFF", fontSize: 13 }}>{action}</Label>
+          <Label style={{ color: colors.blue, fontSize: 13 }}>{action}</Label>
         </Pressable>
       )}
     </View>
@@ -376,9 +391,10 @@ export function Toggle({
   );
 }
 export function Loading({ text = "Opening your library…" }: { text?: string }) {
+  const { colors } = useTheme();
   return (
     <View style={{ padding: 28, alignItems: "center", gap: 12 }}>
-      <ActivityIndicator color="#168BFF" />
+      <ActivityIndicator color={colors.blue} />
       <Label>{text}</Label>
     </View>
   );

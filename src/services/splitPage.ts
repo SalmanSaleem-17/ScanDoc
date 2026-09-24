@@ -10,9 +10,10 @@ export async function splitPage(page: DraftPage, uris: string[]) {
     path: `${Crypto.randomUUID()}.jpg`,
   }));
   try {
-    uris.forEach((uri, i) =>
-      new File(uri).copy(new File(dir, replacements[i].path)),
-    );
+    // copy() is asynchronous natively; both halves must exist before the
+    // rows below point at them, so this is a sequential loop, not a forEach.
+    for (let i = 0; i < uris.length; i++)
+      await new File(uris[i]).copy(new File(dir, replacements[i].path));
     await db.withExclusiveTransactionAsync(async (tx) => {
       const current = await tx.getFirstAsync<DraftPage>(
         "SELECT * FROM draft_pages WHERE id=?",

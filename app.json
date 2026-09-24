@@ -8,10 +8,13 @@
     "userInterfaceStyle": "automatic",
     "icon": "./assets/icon.png",
     "android": {
-      "package": "com.scandoc.app",
+      "package": "com.scandoc.scanner",
       "allowBackup": false,
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO"
+      ],
+      "permissions": [
+        "android.permission.CAMERA"
       ]
     },
     "plugins": [
@@ -49,6 +52,16 @@
           "hidden": false
         }
       ]
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "expo-navigation-bar": {
+        "enforceContrast": false,
+        "hidden": false
+      },
+      "eas": {
+        "projectId": "3e3329c6-1508-401d-825b-dd44fe32da09"
+      }
+    }
   }
 }
