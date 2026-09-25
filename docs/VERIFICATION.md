@@ -3,7 +3,7 @@
 Verified in the current workspace:
 
 - `npm run typecheck`: passed.
-- `npm test`: 32 tests passed, including the Documents/Tools raw-text regression check, the PDF page-range/split-planning tests, and the crop geometry tests.
+- `npm test`: 43 tests passed (originally 32), including the Documents/Tools raw-text regression check, the PDF page-range/split-planning tests, and the crop geometry tests.
 - `expo install --check`: compatible SDK 57 dependency versions.
 - `expo export --platform android`: successful Hermes bundle export after the latest application changes.
 - Android engine Kotlin compilation: passed, including the new OCR preparation module. The compiler confirms every Leptonica and Tesseract signature used (`ReadFile.readBitmap`, `Convert.convertTo8`, `AdaptiveMap.backgroundNormMorph`, `Scale.scale`, `Binarize.otsuAdaptiveThreshold`, `Skew.findSkew`, `Rotate.rotate`, `Rotate.rotateOrth`, `TessBaseAPI.setPageSegMode`, `setVariable`, `setImage(Pix)`).
@@ -70,6 +70,50 @@ app-open preloads). Screenshots of Home and Settings show the "Test Ad"
 adaptive banner directly above the tab bar with the status bar and the rest of
 the layout unchanged; no interstitial appeared during the 90-second warm-up,
 as the policy requires.
+
+Production "camera not opening" (2026-09-25). Reproduced on the emulator
+with both a local release APK and the debug client: CameraX opened the camera
+and the Preview requested its surface, but the preview never reached
+STREAMING and the screen stayed black. The native view's PreviewView was in
+COMPATIBLE (TextureView) mode and, inside a React Native view tree, the
+TextureView it adds on the surface request never received a draw pass. The
+fix has three parts in DocumentCameraView.kt: PERFORMANCE (SurfaceView) mode,
+explicit onMeasure/onLayout of the children, and a bounded relayout pass
+repeated every 250 ms from camera start until the stream state reports
+STREAMING. An unguarded requestLayout override tried first re-queued itself
+from its own layout pass and produced an ANR; the shipped version queues one
+pass at a time and never from inside a pass. Verified with logcat on the
+rebuilt debug client: "Surface created / Surface set on Preview" within
+300 ms of the first kick, "preview stream state STREAMING" 4 s later, the
+edge-detection UI live and the shutter enabled; a page was then captured,
+cropped, saved to a PDF and appended to. JavaScript falls back to the
+standard expo-camera screen if the native view errors or shows nothing for
+20 s (60 s in development builds, where CameraX retries initialisation for a
+missing front camera). The emulator's own virtual camera wedged once during
+this work (the system Camera app went black too) and needed a reboot; that
+was the emulator, not the app.
+
+Expo Go "RNGoogleMobileAdsModule could not be found" red box: Metro reports an
+error thrown while loading a module through ErrorUtils rather than returning
+it to the caller, so the guarded require never caught it and re-ran on every
+render. The loader now asks TurboModuleRegistry for the native module before
+requiring the library. Verified in Expo Go: zero occurrences in logcat across
+Home, Documents, Tools and Settings.
+
+Library and document screen (verified on the debug client): long-press
+selection with Select all, Merge PDF, Save to device and Move to Trash;
+document screen as a numbered page grid with a full-screen swipe viewer; Add
+appends scanned pages to the same PDF (2 pages · 97 KB after appending, same
+id and name); Save to device wrote Download/ScanDoc/Scan_2026-09-25.pdf
+through the system folder picker (Android refuses the top-level Download
+folder, so the UI explains that a sub-folder is needed); the share sheet now
+shows the document's name instead of its stored id. An app-open ad appeared
+on return from the folder picker because the picker had been open for more
+than three minutes; returns from pickers, share sheets and Settings that the
+app opened itself are now excluded from app-open ads (tests/ads-policy.test.mjs).
+Still to check on a phone: the thin (~3 dp) black line at the very top of the
+screen seen only in the release APK on the emulator, and the whole flow on an
+ARM device.
 
 The light-mode "black strip at the top" reported from a phone was reproduced
 in Expo Go on the emulator with 3-button navigation and diagnosed on the

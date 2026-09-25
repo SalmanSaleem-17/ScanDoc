@@ -63,3 +63,37 @@ export function libraryBytes(documents) {
   }
   return totals;
 }
+/**
+ * The name a document is saved under outside the app. The storage provider
+ * appends an extension from the MIME type, so one already in the name is
+ * removed rather than doubled ("Invoice.pdf.pdf").
+ */
+export function exportFileName(name, kind) {
+  const trimmed = String(name ?? "")
+    .trim()
+    .replace(/\.(pdf|jpe?g|png|webp)$/i, "")
+    .trim();
+  return (trimmed || (kind === "pdf" ? "Document" : "Image")).slice(0, 120);
+}
+/**
+ * A readable folder name from a Storage Access Framework tree URI, for the
+ * Settings screen: ".../tree/primary%3ADownload%2FScanDoc" reads as
+ * "Download/ScanDoc". Unknown shapes give "" so callers can fall back.
+ */
+export function describeDirectory(uri) {
+  const match = /\/tree\/([^/?#]+)/.exec(String(uri ?? ""));
+  if (!match) return "";
+  let id;
+  try {
+    id = decodeURIComponent(match[1]);
+  } catch {
+    return "";
+  }
+  const colon = id.indexOf(":");
+  const volume = colon >= 0 ? id.slice(0, colon) : "";
+  const path = colon >= 0 ? id.slice(colon + 1) : id;
+  if (path && volume) return path;
+  if (volume === "primary") return "Internal storage";
+  if (path.toLowerCase() === "downloads") return "Downloads";
+  return path || volume;
+}

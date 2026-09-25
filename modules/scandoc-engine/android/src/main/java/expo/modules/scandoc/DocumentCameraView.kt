@@ -22,11 +22,18 @@ import java.io.File
 import java.util.UUID
 import java.util.concurrent.Executors
 
+private const val TAG="ScanDocCamera"
 class DocumentCameraView(context: Context, appContext: AppContext) : ExpoView(context,appContext) {
   private val onDetection by EventDispatcher()
   private val onReady by EventDispatcher()
   private val onError by EventDispatcher()
-  private val preview=PreviewView(context).apply { implementationMode=PreviewView.ImplementationMode.COMPATIBLE;scaleType=PreviewView.ScaleType.FILL_CENTER }
+  // PERFORMANCE mode draws through a SurfaceView, which receives frames as soon
+  // as it is attached and sized. COMPATIBLE mode (TextureView) needs the view
+  // tree to draw it before a SurfaceTexture exists, and inside a React Native
+  // hierarchy that draw never came: the camera opened, the Preview requested
+  // its surface, and the screen stayed black. expo-camera hosts its PreviewView
+  // the same way (default mode) and streams reliably here.
+  private val preview=PreviewView(context).apply { implementationMode=PreviewView.ImplementationMode.PERFORMANCE;scaleType=PreviewView.ScaleType.FILL_CENTER;elevation=0f }
   private val overlay=BoundaryOverlay(context)
   private val executor=Executors.newSingleThreadExecutor()
   private val tracker=DocumentTracker()
@@ -49,8 +56,56 @@ class DocumentCameraView(context: Context, appContext: AppContext) : ExpoView(co
   var cameraActive=true
     set(value){field=value;if(value)start() else stop()}
   init { addView(preview);addView(overlay) }
+  // React Native sizes this view with Yoga and ignores requestLayout() coming
+  // from native children. PreviewView adds its TextureView only when the
+  // camera asks for a surface and relies on a layout pass following that
+  // request; without one the surface stays 0x0, the stream never starts and
+  // the screen stays black although the camera is open. So every request is
+  // answered with an explicit measure + layout of this view and its children.
+  // One pass is queued at a time, and a pass never queues another: laying the
+  // children out makes them request layout again, which would otherwise post
+  // an endless chain of passes and freeze the main thread.
+  private var relayoutQueued=false
+  private var relayingOut=false
+  private val relayout=Runnable {
+    relayoutQueued=false
+    if(width>0 && height>0 && !relayingOut){
+      relayingOut=true
+      try {
+        measure(MeasureSpec.makeMeasureSpec(width,MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(height,MeasureSpec.EXACTLY))
+        layout(left,top,right,bottom)
+      } finally { relayingOut=false }
+    }
+  }
+  override fun requestLayout(){
+    super.requestLayout()
+    if(!relayingOut && !relayoutQueued){relayoutQueued=true;post(relayout)}
+  }
+  // A child's requestLayout() only reaches this view while no layout is
+  // already pending on it, and React Native never runs the measure pass that
+  // would clear that state. Rather than depend on it, the layout pass is
+  // repeated on a short timer from the moment the camera starts until the
+  // preview reports STREAMING (bounded, so a camera that never streams costs
+  // nothing after a few seconds).
+  @Volatile private var streaming=false
+  private var kicksLeft=0
+  private val kick=object:Runnable {
+    override fun run(){
+      if(!running || streaming || kicksLeft<=0)return
+      kicksLeft--
+      if(!relayingOut){relayoutQueued=true;relayout.run()}
+      postDelayed(this,250)
+    }
+  }
+  override fun onMeasure(widthMeasureSpec: Int,heightMeasureSpec: Int){
+    preview.measure(widthMeasureSpec,heightMeasureSpec);overlay.measure(widthMeasureSpec,heightMeasureSpec)
+    setMeasuredDimension(resolveSize(preview.measuredWidth,widthMeasureSpec),resolveSize(preview.measuredHeight,heightMeasureSpec))
+  }
   override fun onLayout(changed: Boolean,l: Int,t: Int,r: Int,b: Int) {
-    preview.layout(0,0,r-l,b-t);overlay.layout(0,0,r-l,b-t)
+    val w=r-l;val h=b-t
+    val ws=MeasureSpec.makeMeasureSpec(w,MeasureSpec.EXACTLY);val hs=MeasureSpec.makeMeasureSpec(h,MeasureSpec.EXACTLY)
+    preview.measure(ws,hs);preview.layout(0,0,w,h)
+    overlay.measure(ws,hs);overlay.layout(0,0,w,h)
   }
   override fun onAttachedToWindow(){super.onAttachedToWindow();post{start()}}
   override fun onDetachedFromWindow(){stop();super.onDetachedFromWindow()}
@@ -75,9 +130,14 @@ class DocumentCameraView(context: Context, appContext: AppContext) : ExpoView(co
       preview.controller=next;controller=next;running=true
       lifecycle=owner
       next.bindToLifecycle(owner)
+      streaming=false
       preview.previewStreamState.observe(owner) { state ->
+        android.util.Log.d(TAG,"preview stream state $state")
+        if(state==PreviewView.StreamState.STREAMING)streaming=true
         if(running && state==PreviewView.StreamState.STREAMING)onReady(mapOf("ready" to true))
       }
+      kicksLeft=60
+      removeCallbacks(kick);postDelayed(kick,250)
       next.initializationFuture.addListener({
         try { next.initializationFuture.get() } catch(_:Exception) {
           if(controller===next){stop();onError(mapOf("message" to "Camera unavailable. Try reopening the scanner."))}
@@ -95,7 +155,7 @@ class DocumentCameraView(context: Context, appContext: AppContext) : ExpoView(co
     if(!capturing)executor.shutdown()
   }
   private fun stop(){
-    running=false;latest=null;latestAt=0;sensorToView=null
+    running=false;removeCallbacks(kick);latest=null;latestAt=0;sensorToView=null
     lifecycle?.let{preview.previewStreamState.removeObservers(it)};lifecycle=null
     controller?.clearImageAnalysisAnalyzer();controller?.unbind();controller=null;preview.controller=null
     overlay.show(null,false)

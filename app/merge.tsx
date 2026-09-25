@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { View } from "react-native";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { Button, Card, IconButton, Label } from "../src/components/ui";
 import {
   DocumentPicker,
@@ -25,8 +25,16 @@ type Entry = { key: string; document: LocalDocument };
 
 export default function Merge() {
   const { colors } = useTheme();
-  const { refresh } = useDocuments();
-  const [entries, setEntries] = useState<Entry[]>([]);
+  const { documents, refresh } = useDocuments();
+  // Opened from a selection in Documents: those files are the starting list,
+  // in the order they were selected. Anything since trashed is skipped.
+  const { ids } = useLocalSearchParams<{ ids?: string }>();
+  const [entries, setEntries] = useState<Entry[]>(() =>
+    (ids ? ids.split(",") : [])
+      .map((id) => documents.find((d) => d.id === id && !d.trashedAt))
+      .filter((d): d is LocalDocument => !!d)
+      .map((document, index) => ({ key: `${document.id}-${index}`, document })),
+  );
   const [counts, setCounts] = useState<Record<string, number | null>>({});
   const [result, setResult] = useState<{
     id: string;
@@ -34,7 +42,7 @@ export default function Merge() {
     pages: number;
   }>();
   const requested = useRef(new Set<string>());
-  const nextKey = useRef(0);
+  const nextKey = useRef(entries.length);
   const task = useTask();
 
   // Page counts come from the PDF itself: the library row may not have one, and

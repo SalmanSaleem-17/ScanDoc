@@ -18,6 +18,8 @@ Status: four native engine tests pass on an Android 14 emulator; TypeScript, ele
 - First request, denial, permanent denial/settings recovery, unavailable camera, torch unsupported.
 - Rapid capture/save taps, retake, Android hardware back, background/foreground, interruption during saving.
 - Verify files persist after restart and cancelled captures do not accumulate in cache.
+- Live scanner: the preview streams within a few seconds of the permission being granted, and the edge overlay follows a page. If the native view errors or shows nothing for 20 s the standard camera takes over with "Edges are detected after you take the photo"; capture still works there.
+- Deny with "Don't ask again", open Settings from the prompt, grant, return: the scanner opens without leaving the screen (permission is re-read on foreground).
 
 ## Compression
 
@@ -28,6 +30,8 @@ Status: four native engine tests pass on an Android 14 emulator; TypeScript, ele
 
 ## Advertising
 
+- Expo Go: no red error about RNGoogleMobileAdsModule at launch or when opening tabs; Settings shows no Ads section.
+- Built app: no empty strip above the tab bar before an ad loads or when none fills; the banner appears only once loaded.
 - First launch in an EEA test region (UMP debug geography) shows the consent form before any ad; decline it and confirm no banner appears, nothing breaks, and Settings says ads are off.
 - Accept consent: a test banner appears above the tab bar within a few seconds and never inside the camera, page editor or a document.
 - Finish an OCR, merge or compress task within the first 90 seconds of a session: no interstitial. Finish another after that: an interstitial may appear once, then not again for 3 minutes.
@@ -50,7 +54,11 @@ Status: four native engine tests pass on an Android 14 emulator; TypeScript, ele
 - Settings Storage: counts and sizes match the library; Empty trash now is hidden when the trash is empty.
 - Install over a build from before database versioning: the library opens, drafts and search still work (baseline migration is idempotent).
 - PDF cards show a first-page preview after a moment; image cards show the image; with the engine absent (Expo Go) PDFs show the icon and nothing errors.
-- Pull down on Documents to refresh; the Sort by control changes order immediately.
+- Pull down on Documents to refresh; the sort control (Recent → Name → Largest) cycles on tap and the choice survives a restart.
+- Long-press a document: the header shows "1 selected" with Select all and Cancel; taps now toggle; the back gesture cancels. Merge PDF is enabled from two selections and opens the merge tool pre-filled in selection order; Save to device writes every selected file; Move to Trash confirms once for the whole selection. In the Trash filter the bar offers Restore and Delete forever instead. The one-line tip disappears after the first selection.
+- Document screen: a PDF shows every page as a numbered grid cell (renders arrive one at a time), tapping a cell opens the full-screen viewer at that page with swipe and a "n / N" counter, and the back gesture closes the viewer. Images show a single cell.
+- Add pages: from a PDF, Add opens the scanner; captured pages land in a draft titled "Add pages"; finishing it appends them to the same file (same name and id, page count and size updated, grid refreshed) and the draft disappears. Cancelling leaves the original untouched.
+- Save to device: the first save asks for a folder through the system picker and later saves reuse it; Settings → Storage shows the folder name and lets you change it; a saved PDF opens from the Files app. Delete the chosen folder and save again: the picker reappears once.
 
 ## System bars and safe areas
 

@@ -36,6 +36,12 @@ export const migrations = [
       CREATE TABLE IF NOT EXISTS document_folders (documentId TEXT PRIMARY KEY, folder TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS receipts (documentId TEXT PRIMARY KEY, merchant TEXT NOT NULL, date TEXT NOT NULL, currency TEXT NOT NULL, cents INTEGER NOT NULL);`,
   },
+  {
+    // A draft started from an existing document ("Add pages") remembers which
+    // one, so finishing it appends to that PDF instead of creating a new file.
+    version: 2,
+    statements: `ALTER TABLE drafts ADD COLUMN appendTo TEXT;`,
+  },
 ];
 
 let opening: Promise<SQLite.SQLiteDatabase> | undefined;

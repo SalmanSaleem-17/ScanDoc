@@ -1,4 +1,7 @@
+import { useCallback, useState } from "react";
 import { Alert, Linking, Pressable, View } from "react-native";
+import { useFocusEffect } from "expo-router";
+import Constants from "expo-constants";
 import {
   Button,
   Card,
@@ -13,16 +16,35 @@ import { useDocuments } from "../../src/features/documents/provider";
 import { emptyTrash } from "../../src/services/storage";
 import {
   TRASH_RETENTION_DAYS,
+  describeDirectory,
   libraryBytes,
 } from "../../src/services/library.mjs";
+import {
+  FOLDER_HINT,
+  chooseExportDirectory,
+  exportDirectory,
+} from "../../src/services/saveToDevice";
 import { formatBytes } from "../../src/utils/files.mjs";
 import { useAds } from "../../src/features/ads/provider";
 import { POLICY_URL } from "../../src/features/ads/config";
+import { beginSystemFlow } from "../../src/features/ads/systemFlow";
 export default function Settings() {
   const { colors, mode, setMode } = useTheme();
   const { documents, refresh } = useDocuments();
   const ads = useAds();
   const usage = libraryBytes(documents);
+  const [exportDir, setExportDir] = useState<string | null>(null);
+  useFocusEffect(
+    useCallback(() => {
+      let live = true;
+      void exportDirectory().then((value) => {
+        if (live) setExportDir(value);
+      });
+      return () => {
+        live = false;
+      };
+    }, []),
+  );
   const plural = (count: number, word: string) =>
     `${count} ${word}${count === 1 ? "" : "s"}`;
   function confirmEmptyTrash() {
@@ -49,7 +71,7 @@ export default function Settings() {
   }
   return (
     <Screen tabScreen>
-      <Header title="Settings" subtitle="Make ScanDoc feel like you." />
+      <Header title="Settings" />
       <Section title="Appearance" />
       <Card style={{ paddingVertical: 4 }}>
         {(["system", "light", "dark"] as const).map((value, index) => (
@@ -113,6 +135,39 @@ export default function Settings() {
             </Label>
           </View>
         </View>
+        <View style={{ height: 1, backgroundColor: colors.border }} />
+        <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+          <Icon name="download-outline" />
+          <View style={{ flex: 1 }}>
+            <Label style={{ fontWeight: "600" }}>Save to device folder</Label>
+            <Label style={{ color: colors.secondary, fontSize: 13 }}>
+              {exportDir
+                ? describeDirectory(exportDir) || "Chosen folder"
+                : "Chosen the first time you save. " + FOLDER_HINT}
+            </Label>
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Choose the folder documents are saved to"
+            onPress={() =>
+              void chooseExportDirectory()
+                .then((value) => {
+                  if (value) setExportDir(value);
+                })
+                .catch(() =>
+                  Alert.alert(
+                    "Could not open the folder picker",
+                    "Try again, or save a document and choose a folder there.",
+                  ),
+                )
+            }
+            style={{ minHeight: 44, justifyContent: "center" }}
+          >
+            <Label style={{ color: colors.blue, fontSize: 13 }}>
+              {exportDir ? "Change" : "Choose"}
+            </Label>
+          </Pressable>
+        </View>
         {usage.trashCount > 0 && (
           <Button
             title="Empty trash now"
@@ -131,22 +186,24 @@ export default function Settings() {
             <Label
               style={{ color: colors.secondary, fontSize: 13, marginTop: 5 }}
             >
-              Files and document metadata stay in this app&rsquo;s private
-              storage. ScanDoc does not upload your documents or use tracking.
+              Documents and their text stay in this app&rsquo;s private storage.
+              Nothing is uploaded.
             </Label>
           </View>
         </View>
         <View style={{ height: 1, backgroundColor: colors.border }} />
         <Label style={{ fontSize: 13, color: colors.secondary }}>
-          Share important files to a location you control. Uninstalling the app
-          removes its local library, and this library is not included in device
-          backups.
+          Uninstalling removes the library, and it is not part of device
+          backups: share anything important to a place you control.
         </Label>
         <Button
           title="Privacy policy"
           icon="document-text-outline"
           secondary
-          onPress={() => void Linking.openURL(POLICY_URL).catch(() => {})}
+          onPress={() => {
+            beginSystemFlow();
+            void Linking.openURL(POLICY_URL).catch(() => {});
+          }}
         />
       </Card>
       {ads.available && (
@@ -193,10 +250,7 @@ export default function Settings() {
       <Card style={{ gap: 12 }}>
         <Label style={{ fontWeight: "600" }}>ScanDoc: Scanner, PDF & OCR</Label>
         <Label style={{ color: colors.secondary, fontSize: 13 }}>
-          Version 0.1.0 · Foundation preview
-        </Label>
-        <Label style={{ color: colors.secondary, fontSize: 13 }}>
-          Built for a more organized day.
+          {`Version ${Constants.expoConfig?.version ?? "1.0.0"} · Documents never leave this device`}
         </Label>
       </Card>
     </Screen>

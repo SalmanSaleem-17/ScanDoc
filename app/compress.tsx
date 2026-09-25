@@ -19,6 +19,7 @@ import { useDocuments } from "../src/features/documents/provider";
 import { formatBytes } from "../src/utils/files.mjs";
 import type { LocalDocument } from "../src/types/document";
 import { shareDocument } from "../src/features/documents/actions";
+import { beginSystemFlow } from "../src/features/ads/systemFlow";
 export default function Compress() {
   const { colors } = useTheme();
   const { refresh } = useDocuments();
@@ -30,6 +31,7 @@ export default function Compress() {
   const [before, setBefore] = useState(0);
   async function choose() {
     try {
+      beginSystemFlow();
       const picked = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images"],
         quality: 1,

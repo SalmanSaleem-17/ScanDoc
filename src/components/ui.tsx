@@ -74,6 +74,7 @@ export function Header({
       <View style={{ flex: 1 }}>
         <Label
           accessibilityRole="header"
+          numberOfLines={2}
           style={{
             fontSize: 27,
             lineHeight: 34,
@@ -143,6 +144,48 @@ export function Button({
           fontWeight: "600",
         }}
       >
+        {title}
+      </Label>
+    </Pressable>
+  );
+}
+/**
+ * A compact action: icon above a short label, for rows of two to four
+ * equally weighted actions (share, rename, trash). Full-width Buttons are for
+ * the one thing a screen is mainly for.
+ */
+export function IconAction({
+  name,
+  title,
+  onPress,
+  destructive,
+  disabled,
+}: {
+  name: IconName;
+  title: string;
+  onPress: () => void;
+  destructive?: boolean;
+  disabled?: boolean;
+}) {
+  const { colors } = useTheme();
+  const color = destructive ? colors.danger : colors.blue;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.iconAction,
+        {
+          backgroundColor: destructive ? colors.dangerTint : colors.tint,
+          opacity: disabled ? 0.45 : pressed ? 0.75 : 1,
+        },
+      ]}
+    >
+      <Icon name={name} color={color} size={22} />
+      <Label style={{ color, fontSize: 12, lineHeight: 16, fontWeight: "600" }}>
         {title}
       </Label>
     </Pressable>
@@ -245,8 +288,8 @@ export function Section({
   );
 }
 export function EmptyState({
-  title = "Room for your next idea",
-  description = "Scan or import your first document. Everything stays on your device.",
+  title = "Nothing here yet",
+  description = "Scan a page or import a PDF to get started.",
   action,
 }: {
   title?: string;
@@ -428,6 +471,16 @@ const styles = StyleSheet.create({
     height: 48,
     alignItems: "center",
     justifyContent: "center",
+  },
+  iconAction: {
+    flex: 1,
+    minHeight: 64,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
   },
   card: { borderWidth: 1, borderRadius: 16, padding: 18 },
   search: {

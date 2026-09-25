@@ -33,6 +33,7 @@ import {
 } from "../src/features/workflows/logic.mjs";
 import { runEngine, hasEngine } from "../src/services/engine";
 import { useDocuments } from "../src/features/documents/provider";
+import { beginSystemFlow } from "../src/features/ads/systemFlow";
 export default function Receipts() {
   const selection = useRef("");
   const [document, setDocument] = useState<LocalDocument>();
@@ -193,6 +194,7 @@ export default function Receipts() {
             dir.create({ idempotent: true, intermediates: true });
             const file = new File(dir, `Expenses_${Crypto.randomUUID()}.csv`);
             file.write(receiptCsv(csvRows));
+            beginSystemFlow();
             await Sharing.shareAsync(file.uri, { mimeType: "text/csv" });
           })
         }

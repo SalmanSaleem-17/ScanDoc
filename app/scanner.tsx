@@ -17,10 +17,21 @@ import {
   Screen,
 } from "../src/components/ui";
 import { addPage, createDraft, getDraft } from "../src/services/workspace";
+import { beginSystemFlow } from "../src/features/ads/systemFlow";
 export default function Scanner() {
-  const { draftId } = useLocalSearchParams<{ draftId?: string }>();
+  // appendTo: the pages captured here are added to that document when the
+  // draft is finished, instead of becoming a new file.
+  const { draftId, appendTo } = useLocalSearchParams<{
+    draftId?: string;
+    appendTo?: string;
+  }>();
   const currentDraft = useRef(draftId);
-  const [permission, requestPermission] = useCameraPermissions();
+  const [permission, requestPermission, checkPermission] =
+    useCameraPermissions();
+  // Live edge detection runs in the app's own native camera view. If that view
+  // cannot start on a device (camera provider, OpenCV, or an OEM quirk), the
+  // standard camera below takes over rather than leaving a dead end.
+  const [liveUnavailable, setLiveUnavailable] = useState(false);
   const camera = useRef<CameraView>(null);
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -32,9 +43,12 @@ export default function Scanner() {
     const subscription = AppState.addEventListener("change", (state) => {
       setReady(false);
       setActive(state === "active");
+      // Coming back from the system Settings page after granting access: the
+      // hook does not poll, so the status is read again here.
+      if (state === "active") void checkPermission().catch(() => {});
     });
     return () => subscription.remove();
-  }, []);
+  }, [checkPermission]);
   async function capture() {
     if (!ready || lock.current) return;
     lock.current = true;
@@ -45,7 +59,7 @@ export default function Scanner() {
       if (!image) return;
       temporary = image.uri;
       if (!currentDraft.current || !(await getDraft(currentDraft.current)))
-        currentDraft.current = (await createDraft()).id;
+        currentDraft.current = (await createDraft("document", appendTo ?? null)).id;
       const pageId = await addPage(currentDraft.current, image.uri);
       void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(
         () => {},
@@ -100,7 +114,7 @@ export default function Scanner() {
                     ? router.back()
                     : permission.canAskAgain
                       ? void requestPermission()
-                      : void Linking.openSettings()
+                      : (beginSystemFlow(), void Linking.openSettings())
                 }
               />
               {!failed && (
@@ -115,7 +129,14 @@ export default function Scanner() {
         />
       </Screen>
     );
-  if (hasLiveDetection) return <LiveScanner draftId={draftId} />;
+  if (hasLiveDetection && !liveUnavailable)
+    return (
+      <LiveScanner
+        draftId={draftId}
+        appendTo={appendTo}
+        onUnavailable={() => setLiveUnavailable(true)}
+      />
+    );
   return (
     <View style={{ flex: 1, backgroundColor: "#07111F" }}>
       <StatusBar style="light" />
@@ -180,7 +201,9 @@ export default function Scanner() {
           >
             {busy
               ? "Saving page to your draft…"
-              : "Manual capture. Live detection requires the updated ScanDoc Android build."}
+              : liveUnavailable
+                ? "Manual capture. Edges are detected after you take the photo."
+                : "Manual capture. Live detection requires the ScanDoc Android build."}
           </Label>
           <Pressable
             accessibilityLabel="Capture document"

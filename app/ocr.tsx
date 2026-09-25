@@ -26,6 +26,7 @@ import {
 } from "../src/features/workflows/processing";
 import { suggestName } from "../src/features/workflows/logic.mjs";
 import { useDocuments } from "../src/features/documents/provider";
+import { beginSystemFlow } from "../src/features/ads/systemFlow";
 export default function Ocr() {
   const selection = useRef("");
   const [document, setDocument] = useState<LocalDocument>();
@@ -233,6 +234,7 @@ export default function Ocr() {
             dir.create({ idempotent: true, intermediates: true });
             const file = new File(dir, `Text_${Crypto.randomUUID()}.txt`);
             file.write(text);
+            beginSystemFlow();
             await Sharing.shareAsync(file.uri, { mimeType: "text/plain" });
           })
         }

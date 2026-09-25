@@ -12,6 +12,7 @@ import { router } from "expo-router";
 import { Icon, Label } from "../../components/ui";
 import { addPage, createDraft, getDraft, listPages, pageUri, preservePageOriginal, replacePage } from "../../services/workspace";
 import { runEngine, hasLiveDetection } from "../../services/engine";
+import { beginSystemFlow } from "../ads/systemFlow";
 
 type Detection = {
   state: string; guidance: string; progress: number; captureReady: boolean;
@@ -21,11 +22,15 @@ type Detection = {
 type CameraHandle = { capture(automatic: boolean): Promise<{ uri: string; corners?: number[] }> };
 type CameraProps = ViewProps & {
   ref?: Ref<CameraHandle>; active: boolean; flash: string;
-  onReady: () => void; onError: () => void;
+  onReady: () => void; onError: (event: { nativeEvent?: { message?: string } }) => void;
   onDetection: (event: { nativeEvent: Detection }) => void;
 };
 // Loaded only in a development/production build that exposes supportsLiveDetection.
 const NativeCamera = (hasLiveDetection ? requireNativeViewManager("ScanDocEngine") : View) as ComponentType<CameraProps>;
+// Development builds on emulators start CameraX far more slowly (it retries
+// initialisation when the expected front camera is missing), so the fallback
+// waits longer there; phones open the camera in a second or two.
+const PREVIEW_WATCHDOG_MS = __DEV__ ? 60_000 : 20_000;
 const guidance: Record<string, string> = {
   SEARCHING: "Find a document", NEXT_PAGE: "Turn the page or move the document",
   MOVE_CLOSER: "Move closer", MOVE_FARTHER: "Move farther away",
@@ -34,7 +39,7 @@ const guidance: Record<string, string> = {
   REDUCE_ANGLE: "Hold phone above document", READY: "Ready",
 };
 
-export default function LiveScanner({ draftId }: { draftId?: string }) {
+export default function LiveScanner({ draftId, appendTo, onUnavailable }: { draftId?: string; appendTo?: string; onUnavailable?: () => void }) {
   const camera = useRef<CameraHandle>(null);
   const draft = useRef(draftId);
   const lock = useRef(false);
@@ -61,9 +66,26 @@ export default function LiveScanner({ draftId }: { draftId?: string }) {
   }, [draftId]);
 
   useEffect(() => { if (!active || !focused) setReady(false); }, [active, focused]);
+  // A camera that never starts streaming raises no error event. If the preview
+  // has not reported ready within this window the parent is told, so the
+  // standard camera can take over instead of a permanently black screen. The
+  // window is generous on purpose: a first CameraX start on a slow phone (or a
+  // loaded emulator, where it measured 14 s) can take well over ten seconds,
+  // and switching away from a camera that is about to work is worse than
+  // waiting.
+  useEffect(() => {
+    if (!active || !focused || ready || failed) return;
+    const timer = setTimeout(() => {
+      if (!alive.current) return;
+      if (__DEV__) console.warn("[LiveScanner] no preview after the watchdog window; using the standard camera");
+      setFailed(true);
+      onUnavailable?.();
+    }, PREVIEW_WATCHDOG_MS);
+    return () => clearTimeout(timer);
+  }, [active, focused, ready, failed, onUnavailable]);
 
   async function ensureDraft() {
-    if (!draft.current || !(await getDraft(draft.current))) draft.current = (await createDraft()).id;
+    if (!draft.current || !(await getDraft(draft.current))) draft.current = (await createDraft("document", appendTo ?? null)).id;
     return draft.current;
   }
   async function capture(auto = false) {
@@ -113,6 +135,7 @@ export default function LiveScanner({ draftId }: { draftId?: string }) {
     if (lock.current) return;
     lock.current = true; setBusy(true); setStatus("Choose photos?");
     try {
+      beginSystemFlow();
       const picked = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], allowsMultipleSelection: true, selectionLimit: 50, quality: 1 });
       if (!picked.canceled) {
         const id = await ensureDraft();
@@ -145,7 +168,7 @@ export default function LiveScanner({ draftId }: { draftId?: string }) {
       </View>
       <View style={{ flex: 1, overflow: "hidden", minHeight: 120 }}>
         {!failed && <NativeCamera ref={camera} style={StyleSheet.absoluteFill} active={active && focused} flash={flash}
-          onReady={() => setReady(true)} onError={() => { setFailed(true); setReady(false); }}
+          onReady={() => setReady(true)} onError={({ nativeEvent }: { nativeEvent?: { message?: string } }) => { if (__DEV__) console.warn("[LiveScanner] native camera error:", nativeEvent?.message); setFailed(true); setReady(false); onUnavailable?.(); }}
           onDetection={({ nativeEvent: next }) => {
             setDetection(previous => !debug && previous?.state === next.state && previous.guidance === next.guidance && Math.abs(previous.progress - next.progress) < .03 ? previous : next);
             if (next.captureReady && automatic && !lock.current) void capture(true);

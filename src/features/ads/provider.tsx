@@ -11,6 +11,7 @@ import { AppState } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { usePathname } from "expo-router";
 import { loadAdsModule, type AdsModule } from "./module";
+import { endSystemFlow, inSystemFlow } from "./systemFlow";
 import { adUnits } from "./config";
 import {
   adFreeMinutesLeft,
@@ -277,6 +278,8 @@ export function AdsProvider({ children }: React.PropsWithChildren) {
       }
       if (state !== "active") return;
       const now = Date.now();
+      const systemFlow = inSystemFlow(now);
+      endSystemFlow();
       const decision = shouldShowAppOpen(
         {
           canRequestAds: canRequestRef.current,
@@ -285,6 +288,7 @@ export function AdsProvider({ children }: React.PropsWithChildren) {
           backgroundedAt: session.current.backgroundedAt,
           lastFullScreenAt: session.current.lastFullScreenAt,
           pathname: pathRef.current,
+          inSystemFlow: systemFlow,
         },
         now,
       );

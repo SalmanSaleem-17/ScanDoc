@@ -9,6 +9,8 @@ export type Draft = {
   name: string;
   preset: Preset;
   updatedAt: number;
+  /** Document these pages will be appended to when the draft is finished. */
+  appendTo: string | null;
 };
 export type DraftPage = {
   id: string;
@@ -30,21 +32,26 @@ export async function listDrafts() {
     "SELECT * FROM drafts ORDER BY updatedAt DESC",
   );
 }
-export async function createDraft(preset: Preset = "document") {
-  const draft = {
+export async function createDraft(
+  preset: Preset = "document",
+  appendTo: string | null = null,
+) {
+  const draft: Draft = {
     id: Crypto.randomUUID(),
-    name: `${preset === "receipt" ? "Receipt" : preset === "book" ? "Book" : "Scan"}_${new Date().toISOString().slice(0, 10)}`,
+    name: `${appendTo ? "Added pages" : preset === "receipt" ? "Receipt" : preset === "book" ? "Book" : "Scan"}_${new Date().toISOString().slice(0, 10)}`,
     preset,
     updatedAt: Date.now(),
+    appendTo,
   };
   await (
     await workspaceDb()
   ).runAsync(
-    "INSERT INTO drafts VALUES (?,?,?,?)",
+    "INSERT INTO drafts (id, name, preset, updatedAt, appendTo) VALUES (?,?,?,?,?)",
     draft.id,
     draft.name,
     draft.preset,
     draft.updatedAt,
+    draft.appendTo,
   );
   return draft;
 }

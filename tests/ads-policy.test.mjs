@@ -89,6 +89,7 @@ test("app-open ads never fire on a cold start or a short absence", () => {
   assert.equal(shouldShowAppOpen({ ...returning, backgroundedAt: NOW - APP_OPEN_MIN_BACKGROUND_MS + 1 }, NOW).reason, "short-absence");
   assert.equal(shouldShowAppOpen({ ...returning, backgroundedAt: null }, NOW).reason, "short-absence");
   assert.equal(shouldShowAppOpen({ ...returning, pathname: "/scanner" }, NOW).reason, "blocked-route");
+  assert.equal(shouldShowAppOpen({ ...returning, inSystemFlow: true }, NOW).reason, "system-flow");
   assert.equal(shouldShowAppOpen({ ...returning, adFreeUntil: NOW + 1 }, NOW).reason, "ad-free");
   assert.equal(shouldShowAppOpen({ ...returning, canRequestAds: false }, NOW).reason, "no-consent");
   assert.equal(

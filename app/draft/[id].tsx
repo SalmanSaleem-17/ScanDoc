@@ -11,6 +11,7 @@ import {
 } from "../../src/features/workflows/components";
 import {
   addPage,
+  discardDraft,
   getDraft,
   listPages,
   pageUri,
@@ -29,6 +30,10 @@ import {
 } from "../../src/services/engine";
 import { suggestName } from "../../src/features/workflows/logic.mjs";
 import { useDocuments } from "../../src/features/documents/provider";
+import { replaceDocumentFile } from "../../src/services/storage";
+import { forgetPreviews } from "../../src/features/documents/thumbnails";
+import { withRenderedPages } from "../../src/features/pdf/operations";
+import { beginSystemFlow } from "../../src/features/ads/systemFlow";
 export default function DraftScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -36,8 +41,13 @@ export default function DraftScreen() {
   const [name, setName] = useState("");
   const [target, setTarget] = useState("");
   const [result, setResult] = useState("");
-  const { refresh } = useDocuments();
+  const { documents, refresh } = useDocuments();
   const task = useTask();
+  // Set when this draft was started from a document's "Add" action: finishing
+  // it appends the pages to that PDF instead of creating a new file.
+  const appendTarget = draft?.appendTo
+    ? documents.find((d) => d.id === draft.appendTo && !d.trashedAt)
+    : undefined;
   const reload = useCallback(() => {
     void Promise.all([getDraft(id), listPages(id)])
       .then(([d, p]) => {
@@ -60,6 +70,45 @@ export default function DraftScreen() {
     if (target && (!Number.isFinite(mb) || mb < 0.1 || mb > 500))
       throw new Error("Invalid target");
     const uris = pages.map(pageUri);
+    if (draft?.appendTo) {
+      if (!appendTarget)
+        throw new Error("The document these pages belong to is no longer available.");
+      const target = appendTarget;
+      await withRenderedPages(
+        [{ document: target }],
+        signal,
+        progress,
+        async (existing) => {
+          progress("Writing the combined PDF");
+          const output = await runEngine(
+            "pdf",
+            { uris: [...existing, ...uris] },
+            { signal, progress },
+          );
+          try {
+            if (signal.aborted) throw new Error("Cancelled");
+            await replaceDocumentFile(
+              target.id,
+              output.uri!,
+              existing.length + uris.length,
+            );
+            forgetPreviews(target.id);
+            await discardDraft(id);
+            await refresh();
+            // Back to the document this started from (it is below the scanner
+            // and this draft in the stack), so Back does not land on the
+            // scanner again.
+            router.dismissTo({
+              pathname: "/document/[id]",
+              params: { id: target.id },
+            });
+          } finally {
+            output.clean();
+          }
+        },
+      );
+      return;
+    }
     let text = "";
     let title = name;
     if (draft?.preset === "receipt" || draft?.preset === "study") {
@@ -106,9 +155,13 @@ export default function DraftScreen() {
   }
   return (
     <WorkspaceScreen
-      title="Arrange your pages"
+      title={draft?.appendTo ? "Add pages" : "Arrange your pages"}
       scroll={false}
-      subtitle={`${pages.length} pages · ${draft?.preset || "document"} workflow`}
+      subtitle={
+        draft?.appendTo
+          ? `${pages.length} ${pages.length === 1 ? "page" : "pages"} to add to ${appendTarget?.name ?? "a document that is no longer available"}`
+          : `${pages.length} pages · ${draft?.preset || "document"} workflow`
+      }
     >
       <FlatList
         data={pages}
@@ -133,6 +186,7 @@ export default function DraftScreen() {
           disabled={task.busy}
           onPress={() =>
             task.run(async (signal, progress) => {
+              beginSystemFlow();
               const selected = await ImagePicker.launchImageLibraryAsync({
                 mediaTypes: ["images"],
                 allowsMultipleSelection: true,
@@ -233,20 +287,32 @@ export default function DraftScreen() {
 )}
         ListFooterComponent={<View style={{gap:16}}>
 
-      <Field label="PDF name" value={name} onChangeText={setName} />
-      <Field
-        label="Optional size target (MB)"
-        value={target}
-        onChangeText={setTarget}
-        numeric
-      />
-      <Label>
-        Smaller targets reduce resolution and quality. Export creates an
-        image-only PDF; review small text before sharing.
-      </Label>
+      {!draft?.appendTo && (
+        <>
+          <Field label="PDF name" value={name} onChangeText={setName} />
+          <Field
+            label="Optional size target (MB)"
+            value={target}
+            onChangeText={setTarget}
+            numeric
+          />
+          <Label>
+            Smaller targets reduce resolution and quality. Export creates an
+            image-only PDF; review small text before sharing.
+          </Label>
+        </>
+      )}
       <Button
-        title="Create PDF"
-        disabled={!pages.length || task.busy || !name.trim()}
+        title={
+          draft?.appendTo
+            ? `Add ${pages.length} ${pages.length === 1 ? "page" : "pages"} to ${appendTarget?.name ?? "document"}`
+            : "Create PDF"
+        }
+        disabled={
+          !pages.length ||
+          task.busy ||
+          (draft?.appendTo ? !appendTarget : !name.trim())
+        }
         onPress={() => task.run(exportPdf)}
       />
       {result && (

@@ -27,3 +27,5 @@ export declare function libraryBytes(documents: TrashCandidate[]): {
   trash: number;
   trashCount: number;
 };
+export declare function exportFileName(name: string, kind: "pdf" | "image"): string;
+export declare function describeDirectory(uri: string | null | undefined): string;

@@ -65,6 +65,9 @@ export function shouldShowAppOpen(state, now = Date.now()) {
   if (!state.canRequestAds) return { show: false, reason: "no-consent" };
   if (isAdFree(state.adFreeUntil, now)) return { show: false, reason: "ad-free" };
   if (state.coldStart) return { show: false, reason: "cold-start" };
+  // Back from a picker, share sheet or Settings page the app opened itself:
+  // the person never left the app in any meaningful sense.
+  if (state.inSystemFlow) return { show: false, reason: "system-flow" };
   if (routeBlocksFullScreenAds(state.pathname)) return { show: false, reason: "blocked-route" };
   if (!state.backgroundedAt || now - state.backgroundedAt < APP_OPEN_MIN_BACKGROUND_MS)
     return { show: false, reason: "short-absence" };

@@ -2,7 +2,7 @@
   "expo": {
     "name": "ScanDoc",
     "slug": "scandoc",
-    "version": "0.1.0",
+    "version": "1.0.0",
     "orientation": "portrait",
     "scheme": "scandoc",
     "userInterfaceStyle": "automatic",

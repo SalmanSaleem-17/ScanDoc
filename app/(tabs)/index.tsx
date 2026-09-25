@@ -1,11 +1,10 @@
+import { useCallback, useState } from "react";
 import { Image, Pressable, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import {
   Button,
-  Card,
   EmptyState,
-  Header,
   Icon,
   IconButton,
   Label,
@@ -14,16 +13,31 @@ import {
   Section,
   type IconName,
 } from "../../src/components/ui";
-import { useTheme } from "../../src/theme/provider";
 import { useDocuments } from "../../src/features/documents/provider";
 import { useImport } from "../../src/features/documents/useImport";
 import { DocumentCard } from "../../src/features/documents/DocumentCard";
+import { listDrafts } from "../../src/services/workspace";
+
+// Home is deliberately short: scan, the four next-most-common actions, a way
+// back into unfinished scans when there are any, and the latest documents.
 export default function Home() {
-  const { colors } = useTheme();
   const { documents, loading, error, refresh } = useDocuments();
   const { importDocuments, progress } = useImport();
-  const recent = documents.filter((d) => !d.trashedAt).slice(0, 3);
-  // The four things people come back for, one tap from the top of Home.
+  const [drafts, setDrafts] = useState(0);
+  useFocusEffect(
+    useCallback(() => {
+      let live = true;
+      listDrafts()
+        .then((rows) => {
+          if (live) setDrafts(rows.length);
+        })
+        .catch(() => {});
+      return () => {
+        live = false;
+      };
+    }, []),
+  );
+  const recent = documents.filter((d) => !d.trashedAt).slice(0, 4);
   const quickActions: {
     title: string;
     icon: IconName;
@@ -47,14 +61,15 @@ export default function Home() {
           flexDirection: "row",
           alignItems: "center",
           gap: 10,
-          marginBottom: 28,
+          marginBottom: 20,
         }}
       >
         <Image
           source={require("../../assets/icon.png")}
-          style={{ width: 38, height: 38, borderRadius: 10 }}
+          style={{ width: 36, height: 36, borderRadius: 10 }}
         />
         <Label
+          accessibilityRole="header"
           style={{
             fontSize: 22,
             fontWeight: "700",
@@ -70,10 +85,6 @@ export default function Home() {
           onPress={() => router.push("/documents")}
         />
       </View>
-      <Header
-        title="Less paperwork. More done."
-        subtitle="Your everyday document workspace."
-      />
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Scan a document with your camera"
@@ -85,42 +96,41 @@ export default function Home() {
           end={{ x: 1, y: 1 }}
           style={{
             borderRadius: 20,
-            padding: 24,
-            minHeight: 174,
+            padding: 22,
+            minHeight: 150,
             overflow: "hidden",
+            justifyContent: "space-between",
           }}
         >
           <View
-            style={{ flexDirection: "row", justifyContent: "space-between" }}
-          >
-            <View
-              style={{
-                padding: 10,
-                backgroundColor: "#FFFFFF20",
-                borderRadius: 12,
-              }}
-            >
-              <Icon name="scan-outline" color="white" size={29} />
-            </View>
-            <Icon name="arrow-up-right-box-outline" color="#A9DDFF" size={23} />
-          </View>
-          <Label
             style={{
-              color: "white",
-              fontSize: 24,
-              lineHeight: 32,
-              fontWeight: "600",
-              marginTop: 18,
+              padding: 10,
+              backgroundColor: "#FFFFFF20",
+              borderRadius: 12,
+              alignSelf: "flex-start",
             }}
           >
-            Scan Document
-          </Label>
-          <Label style={{ color: "#D2E8FF", fontSize: 13, marginTop: 4 }}>
-            Capture a page. Keep it close.
-          </Label>
+            <Icon name="scan-outline" color="white" size={28} />
+          </View>
+          <View>
+            <Label
+              style={{
+                color: "white",
+                fontSize: 24,
+                lineHeight: 32,
+                fontWeight: "600",
+                marginTop: 16,
+              }}
+            >
+              Scan a document
+            </Label>
+            <Label style={{ color: "#D2E8FF", fontSize: 13, marginTop: 2 }}>
+              Pages are saved as you go and stay on this phone.
+            </Label>
+          </View>
         </LinearGradient>
       </Pressable>
-      <View style={{ gap: 12, marginTop: 14 }}>
+      <View style={{ gap: 12, marginTop: 12 }}>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
           {quickActions.map((action) => (
             <View
@@ -137,17 +147,19 @@ export default function Home() {
             </View>
           ))}
         </View>
+        {drafts > 0 && (
+          <Button
+            secondary
+            title={`Resume ${drafts} unfinished ${drafts === 1 ? "scan" : "scans"}`}
+            icon="layers-outline"
+            onPress={() => router.push("/workspace")}
+          />
+        )}
         {progress && <Loading text={progress} />}
-        <Button
-          secondary
-          title="Scan workspace"
-          icon="layers-outline"
-          onPress={() => router.push("/workspace")}
-        />
       </View>
       <Section
-        title="Recent documents"
-        action="See all"
+        title="Recent"
+        action={recent.length ? "See all" : undefined}
         onPress={() => router.push("/documents")}
       />
       {loading ? (
@@ -164,6 +176,8 @@ export default function Home() {
         ))
       ) : (
         <EmptyState
+          title="No documents yet"
+          description="Scan a page or import a PDF to get started."
           action={
             <Button
               title="Import a document"
@@ -173,24 +187,6 @@ export default function Home() {
           }
         />
       )}
-      <Section title="Made for your everyday" />
-      <Card style={{ flexDirection: "row", gap: 14 }}>
-        <Icon
-          name="shield-checkmark-outline"
-          color={colors.success}
-          size={26}
-        />
-        <View style={{ flex: 1, minWidth: 132 }}>
-          <Label style={{ fontWeight: "600", fontSize: 14 }}>
-            Your documents stay on your device.
-          </Label>
-          <Label
-            style={{ color: colors.secondary, fontSize: 12, marginTop: 4 }}
-          >
-            No account. No uploads. Just your work.
-          </Label>
-        </View>
-      </Card>
     </Screen>
   );
 }

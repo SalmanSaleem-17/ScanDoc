@@ -25,6 +25,8 @@ export interface AppOpenState {
   backgroundedAt: number | null;
   lastFullScreenAt: number | null;
   pathname: string | null;
+  /** The app is returning from system UI it opened itself (pickers, share sheet, Settings). */
+  inSystemFlow?: boolean;
 }
 
 export declare function isAdFree(adFreeUntil: number | null | undefined, now?: number): boolean;

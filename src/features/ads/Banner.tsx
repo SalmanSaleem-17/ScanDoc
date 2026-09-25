@@ -16,17 +16,29 @@ export function Banner() {
   const { adsEnabled } = useAds();
   const { colors } = useTheme();
   const [failed, setFailed] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   if (!ads || !adsEnabled || failed) return null;
   const { BannerAd, BannerAdSize } = ads;
+  // Until an ad has actually loaded the slot takes no space: an empty
+  // reserved strip above the tab bar reads as a layout bug, and on a device
+  // with no fill it would stay empty.
   return (
     <View
       accessibilityLabel="Advertisement"
-      style={{ alignItems: "center", backgroundColor: colors.surface }}
+      style={{
+        alignItems: "center",
+        backgroundColor: colors.surface,
+        height: loaded ? undefined : 0,
+        overflow: "hidden",
+      }}
     >
       <BannerAd
         unitId={adUnits().banner}
         size={BannerAdSize.LARGE_ANCHORED_ADAPTIVE_BANNER}
-        onAdLoaded={() => setFailed(false)}
+        onAdLoaded={() => {
+          setLoaded(true);
+          setFailed(false);
+        }}
         onAdFailedToLoad={() => setFailed(true)}
       />
     </View>
