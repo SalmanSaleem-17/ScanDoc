@@ -26,6 +26,16 @@ Status: four native engine tests pass on an Android 14 emulator; TypeScript, ele
 - Original is preserved; compression result opens/shares; temporary output cleaned after failures.
 - Navigate away during processing, background app, then return; ensure no duplicate save.
 
+## Advertising
+
+- First launch in an EEA test region (UMP debug geography) shows the consent form before any ad; decline it and confirm no banner appears, nothing breaks, and Settings says ads are off.
+- Accept consent: a test banner appears above the tab bar within a few seconds and never inside the camera, page editor or a document.
+- Finish an OCR, merge or compress task within the first 90 seconds of a session: no interstitial. Finish another after that: an interstitial may appear once, then not again for 3 minutes.
+- Background the app for under 3 minutes and return: no app-open ad. Over 3 minutes: one may appear, except on the camera or editor.
+- Settings → Ads → Remove ads for 1 hour: the banner disappears, the countdown shows, and watching again extends it.
+- Ad privacy settings reopens the consent form only where the region requires it.
+- Every ad seen in a development build must be a Google test ad.
+
 ## Capture and import on slow devices
 
 - In Expo Go (no native engine) and in the development build, capture a page, then immediately capture another; both must appear in the draft with their images intact.

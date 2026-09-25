@@ -48,6 +48,7 @@ Install/open the ScanDoc development app, rather than Expo Go. Native dependency
 - Multi-page drafts: camera/gallery pages, reorder, remove, four-corner perspective crop and contrast enhancement, image/PDF export.
 - Full-screen crop editor: drag corners, drag an edge to slide it, drag inside the frame to move the whole selection, with a magnifier under the fingertip, a dimmed discard area, automatic edge detection, 90-degree rotation and fine-adjust nudges for precise or screen-reader use.
 - Quality warnings for possible blur, excessive brightness/darkness and content at the frame edge. These are heuristics requiring user review.
+- Free, supported by a small number of Google AdMob ads: consent-first, never over the camera or editor, and switchable off for an hour by watching a rewarded video. Ads never leave Expo Go builds non-functional.
 - Bundled English OCR with page preparation: lighting is flattened, skew straightened and the page binarised before recognition, full-page layout analysis is enabled, the source resolution is declared, and pages that read poorly are retried in the other three orientations. Editable recognized text, local full-text search and editable suggested names.
 - Document, Receipt, Study and Book presets; receipt/study export runs OCR and assigns a folder.
 - Rectangle-based pixel redaction and image-only PDF export without the source PDF text/attachments.

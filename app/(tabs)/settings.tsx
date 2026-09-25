@@ -1,4 +1,4 @@
-import { Alert, Pressable, View } from "react-native";
+import { Alert, Linking, Pressable, View } from "react-native";
 import {
   Button,
   Card,
@@ -16,9 +16,12 @@ import {
   libraryBytes,
 } from "../../src/services/library.mjs";
 import { formatBytes } from "../../src/utils/files.mjs";
+import { useAds } from "../../src/features/ads/provider";
+import { POLICY_URL } from "../../src/features/ads/config";
 export default function Settings() {
   const { colors, mode, setMode } = useTheme();
   const { documents, refresh } = useDocuments();
+  const ads = useAds();
   const usage = libraryBytes(documents);
   const plural = (count: number, word: string) =>
     `${count} ${word}${count === 1 ? "" : "s"}`;
@@ -139,7 +142,53 @@ export default function Settings() {
           removes its local library, and this library is not included in device
           backups.
         </Label>
+        <Button
+          title="Privacy policy"
+          icon="document-text-outline"
+          secondary
+          onPress={() => void Linking.openURL(POLICY_URL).catch(() => {})}
+        />
       </Card>
+      {ads.available && (
+        <>
+          <Section title="Ads" />
+          <Card style={{ gap: 14 }}>
+            <Label style={{ fontSize: 13, color: colors.secondary }}>
+              {ads.canRequestAds
+                ? "ScanDoc is free and shows a small number of ads through Google AdMob. They never appear over the camera or the page editor, and every feature works the same without them."
+                : "Ads are switched off on this device. Every feature works the same."}
+            </Label>
+            {ads.adFreeMinutes > 0 && (
+              <Label style={{ fontWeight: "600" }}>
+                {`Ad-free for ${ads.adFreeMinutes} more ${ads.adFreeMinutes === 1 ? "minute" : "minutes"}.`}
+              </Label>
+            )}
+            {ads.canRequestAds && (
+              <Button
+                title="Remove ads for 1 hour"
+                icon="play-circle-outline"
+                secondary
+                onPress={() =>
+                  void ads.watchRewardedForAdFree().then((outcome) => {
+                    if (outcome === "rewarded")
+                      Alert.alert("Thank you", "Ads are off for the next hour. Watching again adds another hour.");
+                    else if (outcome === "unavailable")
+                      Alert.alert("No video available", "Try again in a moment.");
+                  })
+                }
+              />
+            )}
+            {ads.privacyOptionsRequired && (
+              <Button
+                title="Ad privacy settings"
+                icon="options-outline"
+                secondary
+                onPress={() => void ads.openPrivacyOptions()}
+              />
+            )}
+          </Card>
+        </>
+      )}
       <Section title="About" />
       <Card style={{ gap: 12 }}>
         <Label style={{ fontWeight: "600" }}>ScanDoc: Scanner, PDF & OCR</Label>

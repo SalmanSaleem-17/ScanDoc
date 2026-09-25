@@ -22,6 +22,7 @@ import { useTheme } from "../../theme/provider";
 import { useDocuments } from "../documents/provider";
 import type { LocalDocument } from "../../types/document";
 import { engineRequirement, hasEngine } from "../../services/engine";
+import { useAds } from "../ads/provider";
 
 // The document picker is deliberately NOT a react-native Modal. A Modal is a
 // separate Android window, and that window does not inherit the activity's
@@ -180,6 +181,7 @@ export function Field({
   );
 }
 export function useTask() {
+  const ads = useAds();
   const active = useRef<AbortController | null>(null);
   const mounted = useRef(true);
   const [busy, setBusy] = useState(false);
@@ -202,10 +204,12 @@ export function useTask() {
     active.current = controller;
     setBusy(true);
     setProgress("Preparing…");
+    let succeeded = false;
     try {
       await work(controller.signal, (message) => {
         if (mounted.current) setProgress(message);
       });
+      succeeded = true;
     } catch {
       if (mounted.current)
         Alert.alert(
@@ -220,6 +224,9 @@ export function useTask() {
         setBusy(false);
         setProgress("");
       }
+      // After the result is on screen, not before: the policy in ads/policy.mjs
+      // decides whether this break is one where an ad may appear.
+      if (succeeded && mounted.current) void ads.showInterstitial();
     }
   }
   return {

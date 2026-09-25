@@ -3,6 +3,7 @@ import { Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon, Label, type IconName } from "../../src/components/ui";
 import { useTheme } from "../../src/theme/provider";
+import { Banner } from "../../src/features/ads/Banner";
 const destinations: { route: string; title: string; icon: IconName }[] = [
   { route: "index", title: "Home", icon: "grid-outline" },
   { route: "documents", title: "Documents", icon: "documents-outline" },
@@ -26,6 +27,7 @@ export default function TabLayout() {
             borderColor: colors.border,
           }}
         >
+          <Banner />
           <View
             style={{
               flexDirection: "row",

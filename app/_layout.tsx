@@ -8,6 +8,7 @@ import { SafeAreaProvider, initialWindowMetrics } from "react-native-safe-area-c
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { ThemeProvider, useTheme } from "../src/theme/provider";
 import { DocumentsProvider } from "../src/features/documents/provider";
+import { AdsProvider } from "../src/features/ads/provider";
 export { ErrorBoundary } from "expo-router";
 function Navigation() {
   const { isDark, colors } = useTheme();
@@ -38,6 +39,7 @@ function Navigation() {
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <StatusBar hidden={false} style={isDark ? "light" : "dark"} />
       <NavigationBar hidden={false} style={isDark ? "light" : "dark"} />
+      <AdsProvider>
       <Stack
         screenOptions={{
           headerShown: false,
@@ -51,6 +53,7 @@ function Navigation() {
           options={{ presentation: "fullScreenModal" }}
         />
       </Stack>
+      </AdsProvider>
     </View>
   );
 }

@@ -49,6 +49,21 @@ client loads JavaScript from Metro rather than the embedded Hermes bundle, runs
 with __DEV__ true, and was built for a single architecture. Which flows were
 exercised on that phone, and what they produced, is not recorded here.
 
+Advertising: react-native-google-mobile-ads 17.1.0 was integrated with a
+consent-first provider, one banner above the tab bar, capped interstitials
+after finished tasks, app-open ads only on a return after a real absence, and a
+rewarded ad-free hour; the placement rules are unit tested
+(tests/ads-policy.test.mjs). The module is loaded through a guarded require so
+Expo Go keeps working. Verified at commit time: typecheck, 41 tests, bundle
+export, expo-doctor 21/21 and the fingerprint step. Two upstream traps were
+handled: the library's Gradle script needs the root-level
+react-native-google-mobile-ads key in app.json (a typo in its "key absent"
+branch otherwise fails the build), and a stale generated autolinking file had
+to be cleared after the package rename. A local debug build with the SDK, the
+merged manifest showing AD_ID, and the consent form plus a test banner on the
+emulator were still being confirmed when this was committed; the results are
+recorded in the following commit.
+
 The light-mode "black strip at the top" reported from a phone was reproduced
 in Expo Go on the emulator with 3-button navigation and diagnosed on the
 device rather than by reasoning. Measured from inside the running app, the top

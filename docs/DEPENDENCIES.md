@@ -27,6 +27,26 @@ The local Android engine now uses Tesseract4Android 4.9.0, AndroidX ExifInterfac
 The crop gestures use the already-installed `react-native-gesture-handler` and `react-native-reanimated`/`react-native-worklets`. `babel-preset-expo` adds `react-native-worklets/plugin` automatically when the package is present, which is what compiles the shared crop geometry into worklets; this was verified by running the preset over the source and counting the generated worklets rather than assuming it. Rotation uses the already-installed `expo-image-manipulator`. No new dependency was added for either.
 
 
+## Advertising
+
+`react-native-google-mobile-ads` 17.1.0 (Google Mobile Ads SDK with the User
+Messaging Platform) is the only third-party SDK that contacts a server. It is
+loaded through a guarded require so Expo Go, which lacks the native module,
+still runs the app without ads. The config plugin writes the AdMob app id and
+`DELAY_APP_MEASUREMENT_INIT` into the manifest; the SDK's own manifest merges
+`com.google.android.gms.permission.AD_ID`, which is why the Play Console
+Advertising ID declaration must now say yes. Native and rewarded-interstitial
+units are intentionally unused.
+
+The library is configured twice on purpose: the Expo config plugin props
+(`androidAppId`, `delayAppMeasurementInit`, ...) write the manifest, and the
+root-level `react-native-google-mobile-ads` key in app.json feeds the library's
+own Gradle script and runtime BuildConfig. In 17.1.0 that Gradle script has a
+typo in its "key absent" branch (it sets `googleAdsJson` instead of
+`googleMobileAdsJson`), so a build without the root key fails with "Cannot get
+property 'googleMobileAdsJson'". Keep both in sync.
+Expo prints `Ignoring extra key in Expo config: "react-native-google-mobile-ads"` for that root key; this is expected and harmless, because Expo does not use it while the library's Gradle script does.
+
 ## OCR and native build update
 
 No new runtime dependency was added for the OCR work: page preparation uses the Leptonica wrappers (`AdaptiveMap`, `Binarize`, `Skew`, `Rotate`, `Scale`, `Convert`) already shipped inside Tesseract4Android 4.9.0.

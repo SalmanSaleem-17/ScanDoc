@@ -11,7 +11,8 @@
       "package": "com.scandoc.scanner",
       "allowBackup": false,
       "blockedPermissions": [
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.SYSTEM_ALERT_WINDOW"
       ],
       "permissions": [
         "android.permission.CAMERA"
@@ -51,6 +52,15 @@
           "enforceContrast": false,
           "hidden": false
         }
+      ],
+      [
+        "react-native-google-mobile-ads",
+        {
+          "androidAppId": "ca-app-pub-5067154930063661~4141451131",
+          "delayAppMeasurementInit": true,
+          "optimizeInitialization": true,
+          "optimizeAdLoading": true
+        }
       ]
     ],
     "extra": {
@@ -63,5 +73,11 @@
         "projectId": "3e3329c6-1508-401d-825b-dd44fe32da09"
       }
     }
+  },
+  "react-native-google-mobile-ads": {
+    "android_app_id": "ca-app-pub-5067154930063661~4141451131",
+    "delay_app_measurement_init": true,
+    "optimize_initialization": true,
+    "optimize_ad_loading": true
   }
 }
