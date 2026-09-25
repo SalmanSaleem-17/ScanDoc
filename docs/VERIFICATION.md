@@ -156,6 +156,19 @@ are blocked in app.json and absent from the merged manifest), PDFs to the
 export folder, and Read Text can take or pick a photo and copy the result;
 these compiled and typecheck, and their on-device pass is still pending.
 
+Why the emulator struggled with ads (measured, not guessed): with the app
+idle on Home, a SIGQUIT thread dump showed the JS thread asleep and the main
+thread inside Choreographer with every frame janky (90th percentile 1150 ms,
+frame counter not advancing), the process at 600 MB PSS with a 325 MB native
+heap and seven live WebViews. Each ad format holds a WebView, and on this
+emulator each failed native attempt left another; the guest has 2.5 GB of
+RAM with under 850 MB available, so it paged. The native card now shares one
+request, the app-open ad is prepared on first background instead of at
+launch, and the remaining WebViews are the interstitial, the rewarded video
+and the native card. A phone with 6 GB or more will not page like this, but
+the same dumpsys meminfo count ("WebViews:") is the number to watch there:
+expect three or four, not seven.
+
 The light-mode "black strip at the top" reported from a phone was reproduced
 in Expo Go on the emulator with 3-button navigation and diagnosed on the
 device rather than by reasoning. Measured from inside the running app, the top

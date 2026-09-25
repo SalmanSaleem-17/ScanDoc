@@ -197,9 +197,13 @@ export function AdsProvider({ children }: React.PropsWithChildren) {
         if (cancelled) return;
         canRequestRef.current = true;
         setCanRequestAds(true);
+        // Each loaded ad holds a WebView (tens of MB). The interstitial and
+        // the rewarded video are prepared now because either can be wanted
+        // within a minute; the app-open ad is only ever shown on a return
+        // from the background, so it is prepared the first time the app
+        // goes there rather than kept warm from launch.
         prepareInterstitial();
         prepareRewarded();
-        prepareAppOpen();
       } catch {}
     })();
     return () => {
@@ -331,6 +335,7 @@ export function AdsProvider({ children }: React.PropsWithChildren) {
       if (state === "background" || state === "inactive") {
         session.current.backgroundedAt = Date.now();
         session.current.coldStart = false;
+        if (ads && canRequestRef.current && !appOpen.current) prepareAppOpen();
         return;
       }
       if (state !== "active") return;
