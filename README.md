@@ -48,7 +48,7 @@ Install/open the ScanDoc development app, rather than Expo Go. Native dependency
 - The document screen shows a first-page render for PDFs (cached at two sizes) with Share, Rename, Tools and Trash as one action row.
 - Scanning falls back from the native live-detection camera to the standard camera if the native view fails or never starts streaming, so capture works on every device.
 - Camera captures persist immediately into drafts. Resume them from Home → Resume scans or Tools → Scan workspace.
-- Multi-page drafts: camera/gallery pages, reorder, remove, four-corner perspective crop and contrast enhancement, image/PDF export.
+- Multi-page drafts shown as a numbered page grid under the document name: tap a page to edit, move or remove it; add pages from the camera or gallery; four-corner perspective crop and contrast enhancement; PDF export with an optional size limit.
 - Full-screen crop editor: drag corners, drag an edge to slide it, drag inside the frame to move the whole selection, with a magnifier under the fingertip, a dimmed discard area, automatic edge detection, 90-degree rotation and fine-adjust nudges for precise or screen-reader use.
 - Quality warnings for possible blur, excessive brightness/darkness and content at the frame edge. These are heuristics requiring user review.
 - Free, supported by a small number of Google AdMob ads: consent-first, never over the camera or editor, and switchable off for an hour by watching a rewarded video. Ads never leave Expo Go builds non-functional.
