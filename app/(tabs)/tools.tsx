@@ -1,174 +1,119 @@
-import { Pressable, View } from "react-native";
+import { View, useWindowDimensions } from "react-native";
 import { router, type Href } from "expo-router";
 import {
   Card,
   Header,
-  Icon,
   Label,
   Loading,
   Screen,
   Section,
+  ToolTile,
   type IconName,
 } from "../../src/components/ui";
-import { useTheme } from "../../src/theme/provider";
+import { useTheme, type Tone } from "../../src/theme/provider";
 import { useImport } from "../../src/features/documents/useImport";
 import { hasEngine } from "../../src/services/engine";
+import { createDraft } from "../../src/services/workspace";
 
 type Tool = {
   name: string;
-  detail: string;
   icon: IconName;
+  tone: Tone;
   route?: Href;
+  action?: "import" | "imageToPdf";
   native?: boolean;
 };
 // Grouped by what the person is holding: a page to capture, a document to
-// work on, or a file to change. Eleven entries need headings, not a search.
+// work on, or a file to change. Tiles match the Quick Tools on Home.
 const groups: { title: string; tools: Tool[] }[] = [
   {
-    title: "Scan",
+    title: "Scan & capture",
     tools: [
-      {
-        name: "Scan workspace",
-        detail: "Unfinished scans, presets and multi-page drafts",
-        icon: "scan-outline",
-        route: "/workspace",
-      },
-      {
-        name: "Crop, redact & book scan",
-        detail: "Edit a copy of any page in the workspace",
-        icon: "crop-outline",
-        route: "/workspace",
-        native: true,
-      },
-      {
-        name: "Import files",
-        detail: "Add PDFs and images to your library",
-        icon: "download-outline",
-      },
+      { name: "Scan workspace", icon: "scan-outline", tone: "blue", route: "/workspace" },
+      { name: "Image to PDF", icon: "images-outline", tone: "orange", action: "imageToPdf" },
+      { name: "Import Files", icon: "download-outline", tone: "cyan", action: "import" },
+      { name: "Edit Image", icon: "crop-outline", tone: "emerald", route: "/workspace", native: true },
     ],
   },
   {
     title: "Document",
     tools: [
-      {
-        name: "Read text (OCR)",
-        detail: "Offline recognition, editable text and search",
-        icon: "text-outline",
-        route: "/ocr",
-        native: true,
-      },
-      {
-        name: "Receipt reports",
-        detail: "Reviewed totals, PDF report and CSV",
-        icon: "receipt-outline",
-        route: "/receipts",
-      },
-      {
-        name: "Compare documents",
-        detail: "Changed lines and first-page differences",
-        icon: "git-compare-outline",
-        route: "/compare",
-        native: true,
-      },
+      { name: "Read Text (OCR)", icon: "text-outline", tone: "green", route: "/ocr", native: true },
+      { name: "Receipts", icon: "receipt-outline", tone: "orange", route: "/receipts" },
+      { name: "Compare", icon: "git-compare-outline", tone: "violet", route: "/compare", native: true },
     ],
   },
   {
     title: "PDF & image",
     tools: [
-      {
-        name: "Merge PDFs",
-        detail: "Combine documents into one file, in your order",
-        icon: "git-merge-outline",
-        route: "/merge",
-        native: true,
-      },
-      {
-        name: "Split PDF",
-        detail: "Extract pages or break a document into parts",
-        icon: "cut-outline",
-        route: "/split",
-        native: true,
-      },
-      {
-        name: "PDF to images",
-        detail: "Save pages as JPEG files",
-        icon: "images-outline",
-        route: "/pdf-to-image",
-        native: true,
-      },
-      {
-        name: "Compress PDF",
-        detail: "Aim for a size limit and see the result",
-        icon: "contract-outline",
-        route: "/export-size",
-        native: true,
-      },
-      {
-        name: "Compress image",
-        detail: "Smaller copy, original kept",
-        icon: "image-outline",
-        route: "/compress",
-      },
+      { name: "Merge PDFs", icon: "git-merge-outline", tone: "red", route: "/merge", native: true },
+      { name: "Split PDF", icon: "git-branch-outline", tone: "violet", route: "/split", native: true },
+      { name: "PDF to Images", icon: "image-outline", tone: "cyan", route: "/pdf-to-image", native: true },
+      { name: "Compress PDF", icon: "contract-outline", tone: "purple", route: "/export-size", native: true },
+      { name: "Compress Image", icon: "resize-outline", tone: "blue", route: "/compress" },
     ],
   },
 ];
 
 export default function Tools() {
   const { colors } = useTheme();
+  const { width } = useWindowDimensions();
+  const tile = Math.floor((Math.min(width, 860) - 40 - 36) / 4);
   const { importDocuments, progress } = useImport();
+  function open(tool: Tool) {
+    if (tool.action === "import") return void importDocuments();
+    if (tool.action === "imageToPdf")
+      return void createDraft("document")
+        .then((draft) => router.push({ pathname: "/draft/[id]", params: { id: draft.id } }))
+        .catch(() => {});
+    if (tool.route) router.push(tool.route);
+  }
   return (
     <Screen tabScreen>
-      <Header title="Tools" />
+      <Header title="Tools" subtitle="Everything runs on this device." />
       {progress && <Loading text={progress} />}
       {!hasEngine && (
         <Card>
           <Label style={{ fontSize: 13 }}>
-            Tools marked "ScanDoc build" need the full Android app. Expo Go
+            Tools marked with a dot need the full ScanDoc build. Expo Go
             supports the library, capture, drafts and image compression.
           </Label>
         </Card>
       )}
-      {groups.map((group, index) => (
+      {groups.map((group) => (
         <View key={group.title}>
           <Section title={group.title} />
-          <Card style={{ paddingVertical: 2, paddingHorizontal: 4 }}>
-            {group.tools.map((tool, position) => (
-              <Pressable
-                key={tool.name}
-                accessibilityRole="button"
-                accessibilityLabel={tool.name}
-                accessibilityHint={tool.detail}
-                onPress={() =>
-                  tool.route ? router.push(tool.route) : void importDocuments()
-                }
-                style={({ pressed }) => ({
-                  flexDirection: "row",
-                  gap: 14,
-                  alignItems: "center",
-                  minHeight: 64,
-                  paddingHorizontal: 12,
-                  borderBottomWidth: position < group.tools.length - 1 ? 1 : 0,
-                  borderColor: colors.border,
-                  opacity: pressed ? 0.7 : 1,
-                })}
-              >
-                <Icon name={tool.icon} />
-                <View style={{ flex: 1, paddingVertical: 10 }}>
-                  <Label style={{ fontWeight: "600", fontSize: 14 }}>
-                    {tool.name}
-                  </Label>
-                  <Label style={{ fontSize: 12, color: colors.secondary }}>
-                    {tool.detail}
-                    {tool.native && !hasEngine ? " · ScanDoc build" : ""}
-                  </Label>
-                </View>
-                <Icon name="chevron-forward" size={17} color={colors.secondary} />
-              </Pressable>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12, rowGap: 18 }}>
+            {group.tools.map((tool) => (
+              <View key={tool.name}>
+                <ToolTile
+                  width={tile}
+                  title={tool.name}
+                  icon={tool.icon}
+                  tone={tool.tone}
+                  onPress={() => open(tool)}
+                  disabled={tool.action === "import" && !!progress}
+                />
+                {tool.native && !hasEngine && (
+                  <View
+                    accessibilityLabel="Needs the ScanDoc build"
+                    style={{
+                      position: "absolute",
+                      top: 6,
+                      right: 6,
+                      width: 10,
+                      height: 10,
+                      borderRadius: 5,
+                      backgroundColor: colors.secondary,
+                    }}
+                  />
+                )}
+              </View>
             ))}
-          </Card>
-          {index === groups.length - 1 && <View style={{ height: 8 }} />}
+          </View>
         </View>
       ))}
+      <View style={{ height: 8 }} />
     </Screen>
   );
 }

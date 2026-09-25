@@ -61,6 +61,13 @@ Status: four native engine tests pass on an Android 14 emulator; TypeScript, ele
 - Add pages: from a PDF, Add opens the scanner; captured pages land in a draft titled "Add pages"; finishing it appends them to the same file (same name and id, page count and size updated, grid refreshed) and the draft disappears. Cancelling leaves the original untouched.
 - Save to device: the first save asks for a folder through the system picker and later saves reuse it; Settings → Storage shows the folder name and lets you change it; a saved PDF opens from the Files app. Delete the chosen folder and save again: the picker reappears once.
 
+## Visual design (light and dark)
+
+- Home: brand header with round Search and Settings buttons; the scan card shows the SCAN chip, "Scan a Document", the Scan Now button and the vector phone illustration in both themes; Quick Tools is a 4×2 grid of tinted tiles; "Resume N unfinished scans" appears only when drafts exist; the empty Recent state shows the folder illustration with Scan Document and Import Files side by side.
+- Tab bar: a floating pill with the Scan button raised out of its centre; nothing above it is clipped, and the ad banner (standard height, about 60 dp) sits between content and the pill only once an ad has loaded.
+- Tools: the same tinted tiles grouped under Scan & capture, Document and PDF & image; in Expo Go a grey dot marks tools that need the full build.
+- Dark theme: navy backgrounds, tinted tiles keep their hue, hero card stays legible; switch in Settings → Appearance and check every tab.
+
 ## System bars and safe areas
 
 - In Expo Go and in a built app, in light mode: the status bar area must show the page background with dark icons, never an opaque black strip. Check with gesture navigation and with 3-button navigation.

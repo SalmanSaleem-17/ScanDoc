@@ -6,10 +6,12 @@ import { adUnits } from "./config";
 import { useAds } from "./provider";
 
 /**
- * The one banner placement: an anchored adaptive banner that sits above the
- * tab bar, so it is never inside a document, the camera or the editor. It
- * renders nothing until ads are allowed, and collapses rather than leaving a
- * gap when no ad fills.
+ * The one banner placement: a standard-height anchored adaptive banner that
+ * sits above the tab bar, so it is never inside a document, the camera or
+ * the editor. The standard size (about 50 to 60 dp) was chosen over the
+ * "large" variant, which took a third of a small screen. It renders nothing
+ * until ads are allowed, and collapses rather than leaving a gap when no ad
+ * fills.
  */
 export function Banner() {
   const ads = loadAdsModule();
@@ -27,14 +29,14 @@ export function Banner() {
       accessibilityLabel="Advertisement"
       style={{
         alignItems: "center",
-        backgroundColor: colors.surface,
+        backgroundColor: colors.background,
         height: loaded ? undefined : 0,
         overflow: "hidden",
       }}
     >
       <BannerAd
         unitId={adUnits().banner}
-        size={BannerAdSize.LARGE_ANCHORED_ADAPTIVE_BANNER}
+        size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
         onAdLoaded={() => {
           setLoaded(true);
           setFailed(false);

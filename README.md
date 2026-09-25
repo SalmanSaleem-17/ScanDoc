@@ -42,7 +42,7 @@ Install/open the ScanDoc development app, rather than Expo Go. Native dependency
 
 ## Current workflows
 
-- Home, Documents, Tools, Settings; light/dark/system themes and runtime safe areas.
+- Home, Documents, Tools, Settings behind a floating tab bar with a raised Scan button; light/dark/system themes with a shared token set (surfaces, tinted tool tiles, hero gradient) and vector illustrations that follow the theme.
 - Private filesystem storage, SQLite metadata, import, search, sorting (remembered), rename, share/export and recoverable trash.
 - Long-press a document to select several: merge them into one PDF in the order selected, move them to Trash, or restore / delete forever from the Trash filter. The Android back gesture cancels a selection.
 - The document screen shows a first-page render for PDFs (cached at two sizes) with Share, Rename, Tools and Trash as one action row.

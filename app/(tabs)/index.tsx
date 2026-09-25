@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { Image, Pressable, View } from "react-native";
+import { Image, Pressable, View, useWindowDimensions } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
 import {
@@ -9,18 +9,25 @@ import {
   IconButton,
   Label,
   Loading,
+  BrandHeader,
+  RowCard,
   Screen,
   Section,
+  ToolTile,
   type IconName,
 } from "../../src/components/ui";
+import { FolderArt, ScanArt } from "../../src/components/art";
+import { useTheme, type Tone } from "../../src/theme/provider";
 import { useDocuments } from "../../src/features/documents/provider";
 import { useImport } from "../../src/features/documents/useImport";
 import { DocumentCard } from "../../src/features/documents/DocumentCard";
-import { listDrafts } from "../../src/services/workspace";
+import { createDraft, listDrafts } from "../../src/services/workspace";
 
-// Home is deliberately short: scan, the four next-most-common actions, a way
-// back into unfinished scans when there are any, and the latest documents.
+// Home: the scan card, the eight tools people reach for most, a way back
+// into unfinished scans when there are any, and the latest documents.
 export default function Home() {
+  const { colors } = useTheme();
+  const { width } = useWindowDimensions();
   const { documents, loading, error, refresh } = useDocuments();
   const { importDocuments, progress } = useImport();
   const [drafts, setDrafts] = useState(0);
@@ -38,128 +45,132 @@ export default function Home() {
     }, []),
   );
   const recent = documents.filter((d) => !d.trashedAt).slice(0, 4);
-  const quickActions: {
-    title: string;
-    icon: IconName;
-    onPress: () => void;
-    disabled?: boolean;
-  }[] = [
+  // Four tiles per row inside the 20 px screen padding, 12 px apart.
+  const tile = Math.floor((Math.min(width, 860) - 40 - 36) / 4);
+  const tools: { title: string; icon: IconName; tone: Tone; onPress: () => void; disabled?: boolean }[] = [
+    { title: "Import Files", icon: "download-outline", tone: "blue", onPress: importDocuments, disabled: !!progress },
+    { title: "Read Text (OCR)", icon: "text-outline", tone: "green", onPress: () => router.push("/ocr") },
+    { title: "Merge PDFs", icon: "git-merge-outline", tone: "red", onPress: () => router.push("/merge") },
+    { title: "Compress PDF", icon: "contract-outline", tone: "purple", onPress: () => router.push("/export-size") },
     {
-      title: "Import files",
-      icon: "download-outline",
-      onPress: importDocuments,
-      disabled: !!progress,
+      title: "Image to PDF",
+      icon: "images-outline",
+      tone: "orange",
+      onPress: () =>
+        void createDraft("document")
+          .then((draft) => router.push({ pathname: "/draft/[id]", params: { id: draft.id } }))
+          .catch(() => {}),
     },
-    { title: "Read text", icon: "text-outline", onPress: () => router.push("/ocr") },
-    { title: "Merge PDFs", icon: "git-merge-outline", onPress: () => router.push("/merge") },
-    { title: "Compress", icon: "contract-outline", onPress: () => router.push("/compress") },
+    { title: "Split PDF", icon: "git-branch-outline", tone: "violet", onPress: () => router.push("/split") },
+    { title: "PDF to Images", icon: "image-outline", tone: "cyan", onPress: () => router.push("/pdf-to-image") },
+    { title: "Edit Image", icon: "crop-outline", tone: "emerald", onPress: () => router.push("/workspace") },
   ];
   return (
     <Screen tabScreen>
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 10,
-          marginBottom: 20,
-        }}
-      >
-        <Image
-          source={require("../../assets/icon.png")}
-          style={{ width: 36, height: 36, borderRadius: 10 }}
-        />
-        <Label
-          accessibilityRole="header"
-          style={{
-            fontSize: 22,
-            fontWeight: "700",
-            letterSpacing: -0.6,
-            flex: 1,
-          }}
-        >
-          ScanDoc
-        </Label>
-        <IconButton
-          name="search-outline"
-          label="Search documents"
-          onPress={() => router.push("/documents")}
-        />
-      </View>
+      <BrandHeader
+        logo={
+          <Image
+            source={require("../../assets/icon.png")}
+            style={{ width: 52, height: 52, borderRadius: 14 }}
+          />
+        }
+        actions={
+          <View style={{ flexDirection: "row", gap: 10 }}>
+            <IconButton
+              name="search-outline"
+              label="Search documents"
+              onPress={() => router.push("/documents")}
+            />
+            <IconButton
+              name="settings-outline"
+              label="Settings"
+              onPress={() => router.push("/settings")}
+            />
+          </View>
+        }
+      />
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Scan a document with your camera"
         onPress={() => router.push("/scanner")}
       >
         <LinearGradient
-          colors={["#075FE4", "#063EAA"]}
+          colors={colors.hero}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{
-            borderRadius: 20,
+            borderRadius: 24,
             padding: 22,
-            minHeight: 150,
+            minHeight: 210,
             overflow: "hidden",
-            justifyContent: "space-between",
+            flexDirection: "row",
+            alignItems: "center",
           }}
         >
-          <View
-            style={{
-              padding: 10,
-              backgroundColor: "#FFFFFF20",
-              borderRadius: 12,
-              alignSelf: "flex-start",
-            }}
-          >
-            <Icon name="scan-outline" color="white" size={28} />
-          </View>
-          <View>
-            <Label
+          <View style={{ flex: 1.1, gap: 8, zIndex: 1 }}>
+            <View
               style={{
-                color: "white",
-                fontSize: 24,
-                lineHeight: 32,
-                fontWeight: "600",
-                marginTop: 16,
+                alignSelf: "flex-start",
+                paddingHorizontal: 12,
+                paddingVertical: 5,
+                borderRadius: 12,
+                backgroundColor: `${colors.blue}22`,
               }}
             >
-              Scan a document
+              <Label style={{ color: colors.blue, fontSize: 12, lineHeight: 16, fontWeight: "800", letterSpacing: 1 }}>
+                SCAN
+              </Label>
+            </View>
+            <Label
+              style={{
+                color: colors.heroText,
+                fontSize: 26,
+                lineHeight: 32,
+                fontWeight: "800",
+                letterSpacing: -0.6,
+              }}
+            >
+              Scan a{" "}
+              <Label style={{ color: colors.blue, fontSize: 26, lineHeight: 32, fontWeight: "800" }}>
+                Document
+              </Label>
             </Label>
-            <Label style={{ color: "#D2E8FF", fontSize: 13, marginTop: 2 }}>
-              Pages are saved as you go and stay on this phone.
+            <Label style={{ color: colors.heroMuted, fontSize: 14, lineHeight: 20 }}>
+              Turn your photos into clean, high-quality scans.
             </Label>
+            <View style={{ alignSelf: "flex-start", marginTop: 6 }}>
+              <Button
+                title="Scan Now"
+                icon="camera"
+                trailingIcon="chevron-forward"
+                onPress={() => router.push("/scanner")}
+              />
+            </View>
+          </View>
+          <View style={{ flex: 0.9, alignItems: "flex-end", marginRight: -14 }}>
+            <ScanArt width={170} height={160} />
           </View>
         </LinearGradient>
       </Pressable>
-      <View style={{ gap: 12, marginTop: 12 }}>
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
-          {quickActions.map((action) => (
-            <View
-              key={action.title}
-              style={{ flexBasis: "46%", flexGrow: 1, minWidth: 132 }}
-            >
-              <Button
-                secondary
-                title={action.title}
-                icon={action.icon}
-                onPress={action.onPress}
-                disabled={action.disabled}
-              />
-            </View>
-          ))}
-        </View>
-        {drafts > 0 && (
-          <Button
-            secondary
-            title={`Resume ${drafts} unfinished ${drafts === 1 ? "scan" : "scans"}`}
-            icon="layers-outline"
-            onPress={() => router.push("/workspace")}
-          />
-        )}
-        {progress && <Loading text={progress} />}
+      <Section title="Quick Tools" action="See All" onPress={() => router.push("/tools")} />
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12, rowGap: 18 }}>
+        {tools.map((tool) => (
+          <ToolTile key={tool.title} width={tile} {...tool} />
+        ))}
       </View>
+      {progress && <Loading text={progress} />}
+      {drafts > 0 && (
+        <RowCard
+          style={{ marginTop: 20 }}
+          icon="layers-outline"
+          title={`Resume ${drafts} unfinished ${drafts === 1 ? "scan" : "scans"}`}
+          detail="Continue where you left off"
+          onPress={() => router.push("/workspace")}
+        />
+      )}
       <Section
-        title="Recent"
-        action={recent.length ? "See all" : undefined}
+        title="Recent Documents"
+        action={recent.length ? "See All" : undefined}
         onPress={() => router.push("/documents")}
       />
       {loading ? (
@@ -176,17 +187,25 @@ export default function Home() {
         ))
       ) : (
         <EmptyState
+          art={<FolderArt />}
           title="No documents yet"
           description="Scan a page or import a PDF to get started."
           action={
-            <Button
-              title="Import a document"
-              secondary
-              onPress={importDocuments}
-            />
+            <View style={{ flexDirection: "row", gap: 10 }}>
+              <View style={{ flex: 1 }}>
+                <Button title="Scan Document" icon="camera" onPress={() => router.push("/scanner")} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Button title="Import Files" icon="folder-open-outline" secondary onPress={importDocuments} />
+              </View>
+            </View>
           }
         />
       )}
+      <View style={{ height: 8 }} />
+      <Label style={{ fontSize: 12, color: colors.secondary, textAlign: "center" }}>
+        <Icon name="shield-checkmark-outline" size={12} color={colors.success} /> Documents never leave this device.
+      </Label>
     </Screen>
   );
 }

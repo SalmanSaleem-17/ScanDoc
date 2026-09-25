@@ -1,7 +1,8 @@
 import { useCallback, useState } from "react";
 import { Alert, View } from "react-native";
 import { router, useFocusEffect } from "expo-router";
-import { Button, Card, Label, Section } from "../src/components/ui";
+import { Button, IconButton, Label, RowCard, Section, type IconName } from "../src/components/ui";
+import type { Tone } from "../src/theme/provider";
 import {
   WorkspaceScreen,
   DocumentPicker,
@@ -29,27 +30,11 @@ export default function Workspace() {
       .catch(() => Alert.alert("Could not open drafts", "Please try again."));
   }, []);
   useFocusEffect(reload);
-  const presets: { id: Preset; title: string; detail: string }[] = [
-    {
-      id: "document",
-      title: "Document",
-      detail: "Capture pages, correct perspective, save a PDF.",
-    },
-    {
-      id: "receipt",
-      title: "Save receipt",
-      detail: "Enhancement, OCR naming and the Receipts folder.",
-    },
-    {
-      id: "study",
-      title: "Study notes",
-      detail: "OCR and searchable text in your Study folder.",
-    },
-    {
-      id: "book",
-      title: "Book pages",
-      detail: "Split facing pages and adjust the spine curve.",
-    },
+  const presets: { id: Preset; title: string; detail: string; icon: IconName; tone: Tone }[] = [
+    { id: "document", title: "Document", detail: "Capture pages, correct perspective, save a PDF.", icon: "document-text-outline", tone: "blue" },
+    { id: "receipt", title: "Receipt", detail: "Enhancement, OCR naming and the Receipts folder.", icon: "receipt-outline", tone: "orange" },
+    { id: "study", title: "Study notes", detail: "OCR and searchable text in your Study folder.", icon: "school-outline", tone: "green" },
+    { id: "book", title: "Book pages", detail: "Split facing pages and adjust the spine curve.", icon: "book-outline", tone: "violet" },
   ];
   return (
     <WorkspaceScreen
@@ -59,42 +44,44 @@ export default function Workspace() {
       <TaskStatus task={task} />
       <Section title="Start a workflow" />
       {presets.map((preset) => (
-        <Card key={preset.id} style={{ gap: 10 }}>
-          <Label>{preset.detail}</Label>
-          <Button
-            title={preset.title}
-            disabled={task.busy}
-            onPress={() =>
-              task.run(async () => {
-                const draft = await createDraft(preset.id);
-                router.push({
-                  pathname: "/scanner",
-                  params: { draftId: draft.id },
-                });
-              })
-            }
-          />
-        </Card>
+        <RowCard
+          key={preset.id}
+          style={{ marginBottom: 10 }}
+          icon={preset.icon}
+          tone={preset.tone}
+          title={preset.title}
+          detail={preset.detail}
+          disabled={task.busy}
+          onPress={() =>
+            task.run(async () => {
+              const draft = await createDraft(preset.id);
+              router.push({
+                pathname: "/scanner",
+                params: { draftId: draft.id },
+              });
+            })
+          }
+        />
       ))}
       <Section title="Continue a draft" />
       {!drafts.length && <Label>No unfinished scans yet.</Label>}
       {drafts.map((draft) => (
-        <Card key={draft.id} style={{ gap: 10 }}>
-          <Label>
-            {draft.name} · {draft.preset}
-          </Label>
-          <Button
-            secondary
-            title="Resume pages"
-            disabled={task.busy}
-            onPress={() =>
-              router.push({ pathname: "/draft/[id]", params: { id: draft.id } })
-            }
-          />
-          <Button
-            secondary
-            title="Discard draft"
-            disabled={task.busy}
+        <RowCard
+          key={draft.id}
+          style={{ marginBottom: 10 }}
+          icon="layers-outline"
+          tone="cyan"
+          title={draft.name}
+          detail={`${draft.preset} · tap to continue`}
+          disabled={task.busy}
+          onPress={() =>
+            router.push({ pathname: "/draft/[id]", params: { id: draft.id } })
+          }
+          trailing={
+          <IconButton
+            plain
+            name="trash-outline"
+            label={`Discard ${draft.name}`}
             onPress={() =>
               Alert.alert(
                 "Discard unfinished scan?",
@@ -114,7 +101,8 @@ export default function Workspace() {
               )
             }
           />
-        </Card>
+          }
+        />
       ))}
       <Section title="Edit an existing file" />
       <DocumentPicker

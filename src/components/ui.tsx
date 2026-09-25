@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useTheme } from "../theme/provider";
+import { useTheme, type Tone } from "../theme/provider";
 export type IconName = React.ComponentProps<typeof Ionicons>["name"];
 export function Label({ style, ...props }: TextProps) {
   const { colors } = useTheme();
@@ -76,23 +76,51 @@ export function Header({
           accessibilityRole="header"
           numberOfLines={2}
           style={{
-            fontSize: 27,
-            lineHeight: 34,
+            fontSize: 26,
+            lineHeight: 32,
             fontWeight: "700",
-            letterSpacing: -0.8,
+            letterSpacing: -0.6,
           }}
         >
           {title}
         </Label>
         {subtitle && (
           <Label
-            style={{ color: colors.secondary, marginTop: 4, fontSize: 13 }}
+            style={{ color: colors.secondary, marginTop: 3, fontSize: 13 }}
           >
             {subtitle}
           </Label>
         )}
       </View>
       {action}
+    </View>
+  );
+}
+/** The app's own header: icon, wordmark and tagline, with round actions. */
+export function BrandHeader({
+  logo,
+  actions,
+}: {
+  logo: React.ReactNode;
+  actions?: React.ReactNode;
+}) {
+  const { colors } = useTheme();
+  return (
+    <View style={[styles.header, { marginBottom: 18 }]}>
+      {logo}
+      <View style={{ flex: 1 }}>
+        <Text
+          accessibilityRole="header"
+          style={{ fontSize: 26, lineHeight: 30, fontWeight: "800", letterSpacing: -0.6, color: colors.text }}
+        >
+          Scan
+          <Text style={{ color: colors.blue }}>Doc</Text>
+        </Text>
+        <Label style={{ color: colors.secondary, fontSize: 13, lineHeight: 18 }}>
+          Scanner, PDF & OCR
+        </Label>
+      </View>
+      {actions}
     </View>
   );
 }
@@ -103,6 +131,7 @@ export function Button({
   secondary,
   destructive,
   disabled,
+  trailingIcon,
 }: {
   title: string;
   onPress: () => void;
@@ -111,8 +140,10 @@ export function Button({
   /** Tinted red: for actions that remove data and cannot be undone. */
   destructive?: boolean;
   disabled?: boolean;
+  trailingIcon?: IconName;
 }) {
   const { colors } = useTheme();
+  const color = destructive ? colors.danger : secondary ? colors.blue : "#FFFFFF";
   return (
     <Pressable
       accessibilityRole="button"
@@ -126,26 +157,14 @@ export function Button({
             ? colors.dangerTint
             : secondary
               ? colors.tint
-              : "#075FE4",
+              : colors.blue,
           opacity: disabled ? 0.45 : pressed ? 0.75 : 1,
         },
       ]}
     >
-      {icon && (
-        <Icon
-          name={icon}
-          color={destructive ? colors.danger : secondary ? colors.blue : "white"}
-          size={20}
-        />
-      )}
-      <Label
-        style={{
-          color: destructive ? colors.danger : secondary ? colors.blue : "white",
-          fontWeight: "600",
-        }}
-      >
-        {title}
-      </Label>
+      {icon && <Icon name={icon} color={color} size={20} />}
+      <Label style={{ color, fontWeight: "600" }}>{title}</Label>
+      {trailingIcon && <Icon name={trailingIcon} color={color} size={18} />}
     </Pressable>
   );
 }
@@ -191,23 +210,36 @@ export function IconAction({
     </Pressable>
   );
 }
+/** Round icon button on a surface disc, as in the screen headers. */
 export function IconButton({
   name,
   label,
   onPress,
+  plain = false,
 }: {
   name: IconName;
   label: string;
   onPress: () => void;
+  /** No disc, just the icon (for tight rows). */
+  plain?: boolean;
 }) {
+  const { colors } = useTheme();
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
       onPress={onPress}
-      style={styles.iconButton}
+      style={({ pressed }) => [
+        styles.iconButton,
+        !plain && {
+          backgroundColor: colors.surface,
+          borderWidth: 1,
+          borderColor: colors.border,
+        },
+        { opacity: pressed ? 0.7 : 1 },
+      ]}
     >
-      <Icon name={name} />
+      <Icon name={name} color={colors.text} size={21} />
     </Pressable>
   );
 }
@@ -226,6 +258,122 @@ export function Card({
     >
       {children}
     </View>
+  );
+}
+/** A tinted square with an icon: the tool tiles on Home and Tools. */
+export function ToolTile({
+  title,
+  icon,
+  tone,
+  onPress,
+  disabled,
+  width,
+}: {
+  title: string;
+  icon: IconName;
+  tone: Tone;
+  onPress: () => void;
+  disabled?: boolean;
+  width: number;
+}) {
+  const { colors } = useTheme();
+  const pair = colors.tones[tone];
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => ({
+        width,
+        alignItems: "center",
+        gap: 8,
+        opacity: disabled ? 0.45 : pressed ? 0.7 : 1,
+      })}
+    >
+      <View
+        style={{
+          width,
+          height: Math.round(width * 0.68),
+          borderRadius: 18,
+          backgroundColor: pair.bg,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Icon name={icon} color={pair.fg} size={Math.round(width * 0.36)} />
+      </View>
+      <Label
+        numberOfLines={2}
+        style={{ fontSize: 13, lineHeight: 17, fontWeight: "600", textAlign: "center" }}
+      >
+        {title}
+      </Label>
+    </Pressable>
+  );
+}
+/** Icon disc, title, detail and a chevron: list rows that go somewhere. */
+export function RowCard({
+  title,
+  detail,
+  icon,
+  tone = "blue",
+  onPress,
+  trailing,
+  disabled,
+  style,
+}: {
+  title: string;
+  detail?: string;
+  icon: IconName;
+  tone?: Tone;
+  onPress?: () => void;
+  trailing?: React.ReactNode;
+  disabled?: boolean;
+  style?: ViewStyle;
+}) {
+  const { colors } = useTheme();
+  const pair = colors.tones[tone];
+  return (
+    <Pressable
+      accessibilityRole={onPress ? "button" : undefined}
+      accessibilityLabel={title}
+      accessibilityHint={detail}
+      accessibilityState={{ disabled }}
+      disabled={disabled || !onPress}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.card,
+        styles.row,
+        { backgroundColor: colors.surface, borderColor: colors.border, opacity: disabled ? 0.45 : pressed ? 0.75 : 1 },
+        style,
+      ]}
+    >
+      <View
+        style={{
+          width: 48,
+          height: 48,
+          borderRadius: 24,
+          backgroundColor: pair.bg,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Icon name={icon} color={pair.fg} size={23} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Label numberOfLines={1} style={{ fontWeight: "700", fontSize: 15 }}>
+          {title}
+        </Label>
+        {detail ? (
+          <Label numberOfLines={2} style={{ fontSize: 13, lineHeight: 18, color: colors.secondary }}>
+            {detail}
+          </Label>
+        ) : null}
+      </View>
+      {trailing ?? (onPress ? <Icon name="chevron-forward" size={18} color={colors.secondary} /> : null)}
+    </Pressable>
   );
 }
 export function SearchBar({
@@ -268,10 +416,10 @@ export function Section({
 }) {
   const { colors } = useTheme();
   return (
-    <View style={[styles.header, { marginTop: 26, marginBottom: 14 }]}>
+    <View style={[styles.header, { marginTop: 24, marginBottom: 14 }]}>
       <Label
         accessibilityRole="header"
-        style={{ fontSize: 18, fontWeight: "600", flex: 1 }}
+        style={{ fontSize: 20, fontWeight: "700", letterSpacing: -0.4, flex: 1 }}
       >
         {title}
       </Label>
@@ -279,9 +427,10 @@ export function Section({
         <Pressable
           onPress={onPress}
           accessibilityRole="button"
-          style={{ minHeight: 44, justifyContent: "center" }}
+          style={{ minHeight: 44, flexDirection: "row", alignItems: "center", gap: 2 }}
         >
-          <Label style={{ color: colors.blue, fontSize: 13 }}>{action}</Label>
+          <Label style={{ color: colors.blue, fontSize: 14, fontWeight: "600" }}>{action}</Label>
+          <Icon name="chevron-forward" size={16} />
         </Pressable>
       )}
     </View>
@@ -291,31 +440,34 @@ export function EmptyState({
   title = "Nothing here yet",
   description = "Scan a page or import a PDF to get started.",
   action,
+  art,
 }: {
   title?: string;
   description?: string;
   action?: React.ReactNode;
+  /** Illustration shown above the title; a folder icon otherwise. */
+  art?: React.ReactNode;
 }) {
   const { colors } = useTheme();
   return (
-    <Card style={{ alignItems: "center", paddingVertical: 30, gap: 12 }}>
-      <View
-        style={{ padding: 18, backgroundColor: colors.tint, borderRadius: 20 }}
-      >
-        <Icon name="documents-outline" size={34} />
-      </View>
-      <Label style={{ fontWeight: "600", fontSize: 17 }}>{title}</Label>
+    <Card style={{ alignItems: "center", paddingVertical: 28, gap: 10 }}>
+      {art ?? (
+        <View style={{ padding: 18, backgroundColor: colors.tint, borderRadius: 22 }}>
+          <Icon name="folder-open-outline" size={34} />
+        </View>
+      )}
+      <Label style={{ fontWeight: "700", fontSize: 18, marginTop: 4 }}>{title}</Label>
       <Label
         style={{
           color: colors.secondary,
           textAlign: "center",
-          maxWidth: 270,
-          fontSize: 13,
+          maxWidth: 280,
+          fontSize: 14,
         }}
       >
         {description}
       </Label>
-      {action}
+      {action ? <View style={{ marginTop: 6, width: "100%" }}>{action}</View> : null}
     </Card>
   );
 }
@@ -334,13 +486,7 @@ export function SegmentedControl<T extends string>({
   return (
     <View style={{ gap: 8 }} accessibilityRole="radiogroup">
       <Label style={{ fontWeight: "600", fontSize: 13 }}>{label}</Label>
-      <View
-        style={{
-          flexDirection: "row",
-          flexWrap: "wrap",
-          gap: 8,
-        }}
-      >
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
         {options.map((option) => {
           const selected = option.value === value;
           return (
@@ -356,7 +502,7 @@ export function SegmentedControl<T extends string>({
                 alignItems: "center",
                 justifyContent: "center",
                 paddingHorizontal: 14,
-                borderRadius: 12,
+                borderRadius: 14,
                 borderWidth: 1,
                 borderColor: selected ? colors.blue : colors.border,
                 backgroundColor: selected ? colors.tint : colors.surface,
@@ -425,9 +571,7 @@ export function Toggle({
       <View style={{ flex: 1 }}>
         <Label style={{ fontSize: 14 }}>{label}</Label>
         {detail && (
-          <Label style={{ fontSize: 12, color: colors.secondary }}>
-            {detail}
-          </Label>
+          <Label style={{ fontSize: 12, color: colors.secondary }}>{detail}</Label>
         )}
       </View>
     </Pressable>
@@ -453,12 +597,12 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 22,
+    marginBottom: 20,
     gap: 12,
   },
   button: {
-    minHeight: 50,
-    borderRadius: 12,
+    minHeight: 52,
+    borderRadius: 16,
     paddingHorizontal: 18,
     paddingVertical: 12,
     flexDirection: "row",
@@ -467,28 +611,30 @@ const styles = StyleSheet.create({
     gap: 9,
   },
   iconButton: {
-    width: 48,
-    height: 48,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     alignItems: "center",
     justifyContent: "center",
   },
   iconAction: {
     flex: 1,
     minHeight: 64,
-    borderRadius: 12,
+    borderRadius: 16,
     paddingVertical: 10,
     paddingHorizontal: 6,
     alignItems: "center",
     justifyContent: "center",
     gap: 5,
   },
-  card: { borderWidth: 1, borderRadius: 16, padding: 18 },
+  card: { borderWidth: 1, borderRadius: 20, padding: 18 },
+  row: { flexDirection: "row", alignItems: "center", gap: 14, paddingVertical: 14, paddingHorizontal: 16 },
   search: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
     borderWidth: 1,
     paddingHorizontal: 14,
-    borderRadius: 12,
+    borderRadius: 16,
   },
 });
