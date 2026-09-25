@@ -1,6 +1,6 @@
 # ScanDoc: Scanner, PDF & OCR
 
-Android-first, offline document toolkit using Expo SDK 57, React Native 0.86, Expo Router and TypeScript. This is an active development build, not a Play Store release.
+Android-first, offline document toolkit using Expo SDK 57, React Native 0.86, Expo Router and TypeScript. Published on Google Play as com.scandoc.scanner; release builds come from EAS with the locally held keystore described below.
 
 ## Run the preview
 
@@ -62,7 +62,7 @@ See [advanced workflow details and limits](docs/ADVANCED-FEATURES.md). These too
 
 ## Privacy and reliability
 
-No accounts, cloud uploads, ads, analytics, or document logging. OCR uses Tesseract4Android with a bundled model, not an online service. Documents and metadata stay in private app storage; AsyncStorage contains only preferences. Android cloud backup is disabled in the app configuration.
+No accounts, cloud uploads, analytics, or document logging. The only network traffic is Google AdMob ad requests, made after consent and never carrying document content. OCR uses Tesseract4Android with a bundled model, not an online service. Documents and metadata stay in private app storage; AsyncStorage contains only preferences. Android cloud backup is disabled in the app configuration.
 
 Share important documents to a location you control: uninstalling the app removes its private library. Trash remains recoverable. Drafts remain after export until explicitly discarded. Native work runs on a serial worker, bounds image resolution and streams JPEG pages into PDFs. PDF workflows allow up to 300 pages and run in the foreground, with cooperative cancellation between steps. Processing does not continue after the app is killed.
 
