@@ -18,6 +18,7 @@ import {
   IconAction,
   IconButton,
   Label,
+  RowCard,
   Screen,
 } from "../../src/components/ui";
 import { Field, TaskStatus, useTask } from "../../src/features/workflows/components";
@@ -47,6 +48,8 @@ import { forgetPreviews } from "../../src/features/documents/thumbnails";
 import { withRenderedPages } from "../../src/features/pdf/operations";
 import { beginSystemFlow } from "../../src/features/ads/systemFlow";
 import { useTheme } from "../../src/theme/provider";
+import { useAds } from "../../src/features/ads/provider";
+import { WATERMARK_TEXT, describeTimeLeft } from "../../src/features/ads/rewards.mjs";
 
 // The draft is shown the way the finished document will be: its name on top
 // and the pages as a numbered grid. Tapping a page selects it and brings up
@@ -66,6 +69,7 @@ export default function DraftScreen() {
   const [result, setResult] = useState("");
   const { documents, refresh } = useDocuments();
   const task = useTask();
+  const ads = useAds();
   // Set when this draft was started from a document's "Add" action: finishing
   // it appends the pages to that PDF instead of creating a new file.
   const appendTarget = draft?.appendTo
@@ -117,7 +121,7 @@ export default function DraftScreen() {
           progress("Writing the combined PDF");
           const output = await runEngine(
             "pdf",
-            { uris: [...existing, ...uris] },
+            { uris: [...existing, ...uris], watermark: ads.pdfWatermark },
             { signal, progress },
           );
           try {
@@ -160,7 +164,7 @@ export default function DraftScreen() {
     }
     const output = await runEngine(
       "pdf",
-      { uris, targetBytes: target ? Math.floor(mb * 1024 * 1024) : 0 },
+      { uris, targetBytes: target ? Math.floor(mb * 1024 * 1024) : 0, watermark: ads.pdfWatermark },
       { signal, progress },
     );
     try {
@@ -246,6 +250,26 @@ export default function DraftScreen() {
         </Card>
       )}
       <TaskStatus task={task} />
+      {ads.available && count > 0 && (
+        <RowCard
+          icon={ads.watermarkFree ? "checkmark-circle-outline" : "sparkles-outline"}
+          tone={ads.watermarkFree ? "green" : "orange"}
+          title={ads.watermarkFree ? "No watermark" : "Remove the watermark"}
+          detail={
+            ads.watermarkFree
+              ? `PDFs are clean for another ${describeTimeLeft(ads.rewards.watermarkFreeUntil)}.`
+              : `New PDFs carry a small "${WATERMARK_TEXT}" mark. Watch a short video to remove it for 24 hours.`
+          }
+          disabled={ads.watermarkFree || !ads.canRequestAds || task.busy}
+          onPress={() =>
+            void ads.watchRewarded("watermark").then((outcome) => {
+              if (outcome === "unavailable")
+                Alert.alert("No video available", "Try again in a moment. PDFs still save normally.");
+            })
+          }
+          trailing={ads.watermarkFree ? <View /> : undefined}
+        />
+      )}
       {count === 0 && (
         <Card style={{ alignItems: "center", gap: 8, paddingVertical: 28 }}>
           <Icon name="scan-outline" size={32} />

@@ -59,6 +59,7 @@ export default function PdfToImage() {
       title="PDF to images"
       subtitle="Save pages as JPEG files in your library."
       native
+      premium="pdfToImages"
     >
       <DocumentPicker
         title="Choose document"

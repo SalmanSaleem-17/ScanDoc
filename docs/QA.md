@@ -30,13 +30,15 @@ Status: four native engine tests pass on an Android 14 emulator; TypeScript, ele
 
 ## Advertising
 
-- Expo Go: no red error about RNGoogleMobileAdsModule at launch or when opening tabs; Settings shows no Ads section.
-- Built app: no empty strip above the tab bar before an ad loads or when none fills; the banner appears only once loaded.
-- First launch in an EEA test region (UMP debug geography) shows the consent form before any ad; decline it and confirm no banner appears, nothing breaks, and Settings says ads are off.
-- Accept consent: a test banner appears above the tab bar within a few seconds and never inside the camera, page editor or a document.
+- Expo Go: no red error about RNGoogleMobileAdsModule at launch or when opening tabs; Settings shows no Ads section; every premium tool is open and PDFs still carry the watermark.
+- Built app: there is no banner anywhere. A native ad card (icon, headline, "Ad" badge, media, body, call to action) appears as the last item on Home, Tools, Settings and at the foot of the Documents list only once it has loaded; nothing is reserved for it before that, and it never appears in a document, the camera or the editor.
+- First launch in an EEA test region (UMP debug geography) shows the consent form before any ad; decline it and confirm no ad card appears, nothing breaks, every tool is open, and Settings says ads are off.
+- Accept consent: a test native card appears within a few seconds on Home.
+- Watermark: create a PDF and open it; every page carries a small "Scanned with ScanDoc" pill in the bottom-right corner. Settings → "Remove the PDF watermark for 24 hours" → watch the test video to the end; the row now shows the time left, the draft screen says "No watermark", and the next PDF has no label. Merge, Split, Compress PDF, receipts reports and Add pages all follow the same rule.
+- Premium tools: open Merge PDFs with no reward active; the gate card appears with "Watch video · unlock for 24 hours" (disabled until the video is loaded). Close the video early: "Video not finished", still gated. Watch to the end: the tool opens and shows "Unlocked for another 23 h 59 min"; Settings lists it. The other five tools (OCR, Split, PDF to Images, Compress PDF, Compare) each gate independently.
 - Finish an OCR, merge or compress task within the first 90 seconds of a session: no interstitial. Finish another after that: an interstitial may appear once, then not again for 3 minutes.
 - Background the app for under 3 minutes and return: no app-open ad. Over 3 minutes: one may appear, except on the camera or editor.
-- Settings → Ads → Remove ads for 1 hour: the banner disappears, the countdown shows, and watching again extends it.
+- Settings → Ads & rewards → Remove ads for 15 minutes: the native cards disappear and no interstitial or app-open ad shows; the row counts down; watching again adds 15 minutes.
 - Ad privacy settings reopens the consent form only where the region requires it.
 - Every ad seen in a development build must be a Google test ad.
 
@@ -64,7 +66,7 @@ Status: four native engine tests pass on an Android 14 emulator; TypeScript, ele
 ## Visual design (light and dark)
 
 - Home: brand header with round Search and Settings buttons; the scan card shows the SCAN chip, "Scan a Document", the Scan Now button and the vector phone illustration in both themes; Quick Tools is a 4×2 grid of tinted tiles; "Resume N unfinished scans" appears only when drafts exist; the empty Recent state shows the folder illustration with Scan Document and Import Files side by side.
-- Tab bar: a floating pill with the Scan button raised out of its centre; nothing above it is clipped, and the ad banner (standard height, about 60 dp) sits between content and the pill only once an ad has loaded.
+- Tab bar: a floating pill with the Scan button raised out of its centre; nothing above it is clipped and nothing ever sits between content and the pill.
 - Tools: the same tinted tiles grouped under Scan & capture, Document and PDF & image; in Expo Go a grey dot marks tools that need the full build.
 - Dark theme: navy backgrounds, tinted tiles keep their hue, hero card stays legible; switch in Settings → Appearance and check every tab.
 

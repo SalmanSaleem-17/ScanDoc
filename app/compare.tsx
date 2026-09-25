@@ -33,6 +33,7 @@ export default function Compare() {
       title="Compare documents"
       subtitle="Check changed text and first-page appearance."
       native
+      premium="compare"
     >
       <DocumentPicker
         title="Original"

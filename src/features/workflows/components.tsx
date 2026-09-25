@@ -14,6 +14,7 @@ import {
   Button,
   Card,
   Header,
+  Icon,
   IconButton,
   Label,
   Screen,
@@ -23,6 +24,7 @@ import { useDocuments } from "../documents/provider";
 import type { LocalDocument } from "../../types/document";
 import { engineRequirement, hasEngine } from "../../services/engine";
 import { useAds } from "../ads/provider";
+import { PREMIUM_FEATURES, describeTimeLeft, type PremiumFeature } from "../ads/rewards.mjs";
 
 // The document picker is deliberately NOT a react-native Modal. A Modal is a
 // separate Android window, and that window does not inherit the activity's
@@ -41,12 +43,17 @@ export function WorkspaceScreen({
   children,
   native = false,
   scroll = true,
+  premium,
 }: React.PropsWithChildren<{
   title: string;
   subtitle?: string;
   native?: boolean;
   scroll?: boolean;
+  /** A tool other apps charge for: a short video unlocks it for 24 hours. */
+  premium?: PremiumFeature;
 }>) {
+  const ads = useAds();
+  const gated = !!premium && ads.gateFor(premium);
   const [pick, setPick] = useState<{
     onSelect: (document: LocalDocument) => void;
   } | null>(null);
@@ -90,8 +97,17 @@ export function WorkspaceScreen({
                   Build command: npm run android
                 </Label>
               </Card>
+            ) : gated && premium ? (
+              <PremiumGate feature={premium} />
             ) : (
-              children
+              <>
+                {premium && ads.available && ads.isUnlocked(premium) && (
+                  <Label style={{ fontSize: 12, color: colors.secondary }}>
+                    {`Unlocked for another ${describeTimeLeft(ads.rewards.unlocks[premium])}.`}
+                  </Label>
+                )}
+                {children}
+              </>
             )}
           </View>
         </Screen>
@@ -141,6 +157,49 @@ export function WorkspaceScreen({
         )}
       </View>
     </PickerContext.Provider>
+  );
+}
+// Shown in place of a premium tool until a rewarded video has been watched.
+// It only ever appears when a video can be shown (see rewards.mjs), so the
+// tool is never blocked in Expo Go, without consent or offline.
+function PremiumGate({ feature }: { feature: PremiumFeature }) {
+  const ads = useAds();
+  const { colors } = useTheme();
+  const [busy, setBusy] = useState(false);
+  const name = PREMIUM_FEATURES[feature];
+  return (
+    <Card style={{ alignItems: "center", gap: 12, paddingVertical: 28 }}>
+      <View style={{ padding: 18, borderRadius: 22, backgroundColor: colors.tones.orange.bg }}>
+        <Icon name="sparkles-outline" size={34} color={colors.tones.orange.fg} />
+      </View>
+      <Label style={{ fontWeight: "700", fontSize: 18, textAlign: "center" }}>
+        {`${name} is free with a short video`}
+      </Label>
+      <Label style={{ color: colors.secondary, fontSize: 14, textAlign: "center", maxWidth: 300 }}>
+        Other apps sell this tool. Here one video unlocks it for 24 hours, on
+        this device, with nothing to sign up for.
+      </Label>
+      <View style={{ width: "100%", marginTop: 4 }}>
+        <Button
+          title={busy ? "Loading video…" : ads.rewardedReady ? "Watch video · unlock for 24 hours" : "Video loading…"}
+          icon="play-circle-outline"
+          disabled={busy || !ads.rewardedReady}
+          onPress={() => {
+            setBusy(true);
+            void ads.watchRewarded(feature).then((outcome) => {
+              setBusy(false);
+              if (outcome === "unavailable")
+                Alert.alert("No video available", "Try again in a moment.");
+              else if (outcome === "dismissed")
+                Alert.alert("Video not finished", "Watch it to the end to unlock the tool.");
+            });
+          }}
+        />
+      </View>
+      <Label style={{ color: colors.secondary, fontSize: 12, textAlign: "center" }}>
+        Or remove all ads for 15 minutes in Settings.
+      </Label>
+    </Card>
   );
 }
 export function Field({

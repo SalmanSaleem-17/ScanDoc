@@ -122,6 +122,10 @@ class ScanDocEngineModule : Module() {
             "pdf" -> {
               val sources = args.getJSONArray("uris"); require(sources.length() in 1..300)
               val target = args.optLong("targetBytes", 0)
+              // A short line of text stamped on every page (the free tier's
+              // watermark); empty means none. Drawn onto the page image, so it
+              // survives any viewer and cannot be stripped as a PDF object.
+              val watermark = args.optString("watermark", "").trim()
               val output = File(job, "document.pdf")
               val attempts = if (target > 0) listOf(1800 to 85, 1500 to 70, 1200 to 55, 950 to 40, 750 to 30) else listOf(2000 to 90)
               var usedWidth = 2000; var usedQuality = 90
@@ -129,7 +133,7 @@ class ScanDocEngineModule : Module() {
                 usedWidth = settings.first; usedQuality = settings.second
                 PdfWriter.write(output, sources.length(), { page ->
                   checkpoint()
-                  val bitmap = images.load(sources.getString(page), usedWidth)
+                  val bitmap = images.load(sources.getString(page), usedWidth).let { if (watermark.isEmpty()) it else images.stamp(it, watermark) }
                   try {
                     val jpeg = File(job, "page.jpg")
                     jpeg.outputStream().use { check(bitmap.compress(Bitmap.CompressFormat.JPEG, usedQuality, it)) }

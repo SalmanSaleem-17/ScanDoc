@@ -25,6 +25,7 @@ import { storePdf } from "../src/services/workspace";
 import { useDocuments } from "../src/features/documents/provider";
 import { useTheme } from "../src/theme/provider";
 import { timestampName } from "../src/utils/files.mjs";
+import { useAds } from "../src/features/ads/provider";
 
 export default function Split() {
   const { colors } = useTheme();
@@ -35,6 +36,7 @@ export default function Split() {
   const [value, setValue] = useState("1-2");
   const [saved, setSaved] = useState<string[]>([]);
   const task = useTask();
+  const ads = useAds();
 
   useEffect(() => {
     if (!document) return;
@@ -65,6 +67,7 @@ export default function Split() {
       title="Split PDF"
       subtitle="Extract pages or break a document into parts."
       native
+      premium="split"
     >
       <DocumentPicker
         title="Choose document"
@@ -171,7 +174,7 @@ export default function Split() {
                   async (uris) => {
                     const output = await runEngine(
                       "pdf",
-                      { uris },
+                      { uris, watermark: ads.pdfWatermark },
                       { signal, progress },
                     );
                     try {

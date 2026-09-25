@@ -43,6 +43,25 @@ class Images(private val context: Context, private val job: File) {
     }
     return bitmap
   }
+  /**
+   * Draws a small label in the bottom-right corner: light text on a soft dark
+   * pill, sized from the page width so it reads the same on any page. Returns
+   * a mutable copy when the source cannot be drawn on, recycling the source.
+   */
+  fun stamp(source: Bitmap, text: String): Bitmap {
+    val bitmap = if (source.isMutable) source else source.copy(Bitmap.Config.ARGB_8888, true).also { source.recycle() }
+    val canvas = Canvas(bitmap)
+    val size = (bitmap.width * 0.024f).coerceIn(14f, 48f)
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { textSize = size; color = Color.WHITE; typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD) }
+    val padX = size * 0.8f; val padY = size * 0.45f
+    val textWidth = paint.measureText(text)
+    val margin = size * 0.9f
+    val right = bitmap.width - margin; val bottom = bitmap.height - margin
+    val rect = RectF(right - textWidth - padX * 2, bottom - size - padY * 2, right, bottom)
+    canvas.drawRoundRect(rect, size * 0.6f, size * 0.6f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(150, 15, 23, 42) })
+    canvas.drawText(text, rect.left + padX, rect.bottom - padY - paint.descent() + size * 0.1f, paint)
+    return bitmap
+  }
   fun save(bitmap: Bitmap): String {
     val output = File(job, "${UUID.randomUUID()}.jpg")
     output.outputStream().use { check(bitmap.compress(Bitmap.CompressFormat.JPEG, 95, it)) }

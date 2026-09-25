@@ -14,6 +14,7 @@ import { runEngine } from "../src/services/engine";
 import { storePdf } from "../src/services/workspace";
 import { formatBytes } from "../src/utils/files.mjs";
 import { useDocuments } from "../src/features/documents/provider";
+import { useAds } from "../src/features/ads/provider";
 export default function ExportSize() {
   const [document, setDocument] = useState<LocalDocument>();
   const [target, setTarget] = useState("2");
@@ -23,12 +24,14 @@ export default function ExportSize() {
     met: boolean;
   }>();
   const task = useTask();
+  const ads = useAds();
   const { refresh } = useDocuments();
   return (
     <WorkspaceScreen
       title="Export size target"
       subtitle="Prepare a PDF for upload limits."
       native
+      premium="compressPdf"
     >
       <DocumentPicker
         title="Choose document"
@@ -73,6 +76,7 @@ export default function ExportSize() {
                   {
                     uris,
                     targetBytes: Math.floor(Number(target) * 1024 * 1024),
+                    watermark: ads.pdfWatermark,
                   },
                   { signal, progress },
                 );

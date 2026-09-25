@@ -3,15 +3,15 @@ import { Platform, Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon, Label, type IconName } from "../../src/components/ui";
 import { useTheme } from "../../src/theme/provider";
-import { Banner } from "../../src/features/ads/Banner";
 const destinations: { route: string; title: string; icon: IconName; active: IconName }[] = [
   { route: "index", title: "Home", icon: "home-outline", active: "home" },
   { route: "documents", title: "Documents", icon: "document-text-outline", active: "document-text" },
   { route: "tools", title: "Tools", icon: "grid-outline", active: "grid" },
   { route: "settings", title: "Settings", icon: "settings-outline", active: "settings" },
 ];
-// A floating pill with the scan button raised out of its centre. The banner,
-// when one has loaded, sits above the pill so it never covers it.
+// A floating pill with the scan button raised out of its centre. Ads never
+// sit here: the one in-feed placement is the native card at the end of each
+// tab screen (src/features/ads/NativeAdCard.tsx).
 export default function TabLayout() {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
@@ -27,7 +27,6 @@ export default function TabLayout() {
             backgroundColor: colors.background,
           }}
         >
-          <Banner />
           <View
             style={{
               marginHorizontal: 14,

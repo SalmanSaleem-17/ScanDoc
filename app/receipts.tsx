@@ -34,6 +34,7 @@ import {
 import { runEngine, hasEngine } from "../src/services/engine";
 import { useDocuments } from "../src/features/documents/provider";
 import { beginSystemFlow } from "../src/features/ads/systemFlow";
+import { useAds } from "../src/features/ads/provider";
 export default function Receipts() {
   const selection = useRef("");
   const [document, setDocument] = useState<LocalDocument>();
@@ -44,6 +45,7 @@ export default function Receipts() {
   const [rows, setRows] = useState<Receipt[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const task = useTask();
+  const ads = useAds();
   const { documents, refresh } = useDocuments();
   const reload = useCallback(() => {
     void listReceipts()
@@ -247,7 +249,7 @@ export default function Receipts() {
                 } else {
                   const pdf = await runEngine(
                     "pdf",
-                    { uris: reportUris },
+                    { uris: reportUris, watermark: ads.pdfWatermark },
                     { signal, progress },
                   );
                   try {

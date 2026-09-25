@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { Alert, Linking, Pressable, View } from "react-native";
 import { useFocusEffect } from "expo-router";
 import Constants from "expo-constants";
@@ -27,6 +27,8 @@ import {
 import { formatBytes } from "../../src/utils/files.mjs";
 import { useAds } from "../../src/features/ads/provider";
 import { POLICY_URL } from "../../src/features/ads/config";
+import { NativeAdCard } from "../../src/features/ads/NativeAdCard";
+import { PREMIUM_FEATURES, describeTimeLeft, type PremiumFeature } from "../../src/features/ads/rewards.mjs";
 import { beginSystemFlow } from "../../src/features/ads/systemFlow";
 export default function Settings() {
   const { colors, mode, setMode } = useTheme();
@@ -208,32 +210,47 @@ export default function Settings() {
       </Card>
       {ads.available && (
         <>
-          <Section title="Ads" />
+          <Section title="Ads & rewards" />
           <Card style={{ gap: 14 }}>
             <Label style={{ fontSize: 13, color: colors.secondary }}>
               {ads.canRequestAds
-                ? "ScanDoc is free and shows a small number of ads through Google AdMob. They never appear over the camera or the page editor, and every feature works the same without them."
-                : "Ads are switched off on this device. Every feature works the same."}
+                ? "ScanDoc is free and shows a small number of ads through Google AdMob, never over the camera or the page editor. A short video pays for the extras below; nothing is ever sold."
+                : "Ads are switched off on this device. Every tool is open and no video is needed."}
             </Label>
-            {ads.adFreeMinutes > 0 && (
-              <Label style={{ fontWeight: "600" }}>
-                {`Ad-free for ${ads.adFreeMinutes} more ${ads.adFreeMinutes === 1 ? "minute" : "minutes"}.`}
-              </Label>
-            )}
             {ads.canRequestAds && (
-              <Button
-                title="Remove ads for 1 hour"
-                icon="play-circle-outline"
-                secondary
-                onPress={() =>
-                  void ads.watchRewardedForAdFree().then((outcome) => {
-                    if (outcome === "rewarded")
-                      Alert.alert("Thank you", "Ads are off for the next hour. Watching again adds another hour.");
-                    else if (outcome === "unavailable")
-                      Alert.alert("No video available", "Try again in a moment.");
-                  })
-                }
-              />
+              <>
+                <View style={{ height: 1, backgroundColor: colors.border }} />
+                <RewardRow
+                  icon="eye-off-outline"
+                  title="Remove ads for 15 minutes"
+                  active={ads.adFreeMinutes > 0 ? `Ad-free for another ${describeTimeLeft(ads.rewards.adFreeUntil)} · watch again to add 15 min` : ""}
+                  ready={ads.rewardedReady}
+                  onPress={() =>
+                    void ads.watchRewardedForAdFree().then((outcome) => {
+                      if (outcome === "unavailable") Alert.alert("No video available", "Try again in a moment.");
+                    })
+                  }
+                />
+                <RewardRow
+                  icon="sparkles-outline"
+                  title="Remove the PDF watermark for 24 hours"
+                  active={ads.watermarkFree ? `No watermark for another ${describeTimeLeft(ads.rewards.watermarkFreeUntil)}` : ""}
+                  ready={ads.rewardedReady}
+                  onPress={() =>
+                    void ads.watchRewarded("watermark").then((outcome) => {
+                      if (outcome === "unavailable") Alert.alert("No video available", "Try again in a moment.");
+                    })
+                  }
+                />
+                <Label style={{ fontSize: 12, color: colors.secondary }}>
+                  {(() => {
+                    const open = (Object.keys(PREMIUM_FEATURES) as PremiumFeature[]).filter((f) => ads.isUnlocked(f));
+                    return open.length
+                      ? `Unlocked tools: ${open.map((f) => `${PREMIUM_FEATURES[f]} (${describeTimeLeft(ads.rewards.unlocks[f])})`).join(", ")}.`
+                      : "OCR, Merge, Split, PDF to Images, Compress PDF and Compare each unlock for 24 hours with a video, from inside the tool.";
+                  })()}
+                </Label>
+              </>
             )}
             {ads.privacyOptionsRequired && (
               <Button
@@ -246,6 +263,7 @@ export default function Settings() {
           </Card>
         </>
       )}
+      <NativeAdCard />
       <Section title="About" />
       <Card style={{ gap: 12 }}>
         <Label style={{ fontWeight: "600" }}>ScanDoc: Scanner, PDF & OCR</Label>
@@ -254,5 +272,43 @@ export default function Settings() {
         </Label>
       </Card>
     </Screen>
+  );
+}
+
+function RewardRow({
+  icon,
+  title,
+  active,
+  ready,
+  onPress,
+}: {
+  icon: React.ComponentProps<typeof Icon>["name"];
+  title: string;
+  /** Status line while the reward is running; empty when it is not. */
+  active: string;
+  ready: boolean;
+  onPress: () => void;
+}) {
+  const { colors } = useTheme();
+  return (
+    <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+      <Icon name={icon} color={active ? colors.success : colors.blue} />
+      <View style={{ flex: 1 }}>
+        <Label style={{ fontWeight: "600" }}>{title}</Label>
+        <Label style={{ color: colors.secondary, fontSize: 13 }}>
+          {active || (ready ? "Watch a short video" : "Video loading…")}
+        </Label>
+      </View>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={title}
+        accessibilityState={{ disabled: !ready }}
+        disabled={!ready}
+        onPress={onPress}
+        style={{ minHeight: 44, paddingHorizontal: 12, justifyContent: "center", opacity: ready ? 1 : 0.5 }}
+      >
+        <Label style={{ color: colors.blue, fontSize: 13, fontWeight: "600" }}>Watch</Label>
+      </Pressable>
+    </View>
   );
 }

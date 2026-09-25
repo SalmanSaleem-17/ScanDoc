@@ -19,6 +19,7 @@ import { runEngine } from "../src/services/engine";
 import { storePdf } from "../src/services/workspace";
 import { useDocuments } from "../src/features/documents/provider";
 import { useTheme } from "../src/theme/provider";
+import { useAds } from "../src/features/ads/provider";
 import { formatBytes, timestampName } from "../src/utils/files.mjs";
 
 type Entry = { key: string; document: LocalDocument };
@@ -44,6 +45,7 @@ export default function Merge() {
   const requested = useRef(new Set<string>());
   const nextKey = useRef(entries.length);
   const task = useTask();
+  const ads = useAds();
 
   // Page counts come from the PDF itself: the library row may not have one, and
   // a count is never guessed. Unreadable files are reported, not defaulted.
@@ -93,6 +95,7 @@ export default function Merge() {
       title="Merge PDFs"
       subtitle="Combine documents into one file, in your order."
       native
+      premium="merge"
     >
       <DocumentPicker
         title="Add a document"
@@ -185,7 +188,7 @@ export default function Merge() {
               async (uris) => {
                 const output = await runEngine(
                   "pdf",
-                  { uris },
+                  { uris, watermark: ads.pdfWatermark },
                   { signal, progress },
                 );
                 try {

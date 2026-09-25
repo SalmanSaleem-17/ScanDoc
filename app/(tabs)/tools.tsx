@@ -14,6 +14,7 @@ import { useTheme, type Tone } from "../../src/theme/provider";
 import { useImport } from "../../src/features/documents/useImport";
 import { hasEngine } from "../../src/services/engine";
 import { createDraft } from "../../src/services/workspace";
+import { NativeAdCard } from "../../src/features/ads/NativeAdCard";
 
 type Tool = {
   name: string;
@@ -113,6 +114,7 @@ export default function Tools() {
           </View>
         </View>
       ))}
+      <NativeAdCard />
       <View style={{ height: 8 }} />
     </Screen>
   );

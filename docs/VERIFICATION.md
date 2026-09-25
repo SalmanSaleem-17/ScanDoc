@@ -115,6 +115,35 @@ Still to check on a phone: the thin (~3 dp) black line at the very top of the
 screen seen only in the release APK on the emulator, and the whole flow on an
 ARM device.
 
+Native ads, rewards and the watermark (2026-09-25). The banner is gone; one
+native ad card (NativeAdCard.tsx) is the last item of Home, Tools, Settings
+and the Documents list, taking no space until an ad has loaded. Rewards
+(rewards.mjs, 6 tests): one rewarded unit buys 15 ad-free minutes (stacking),
+24 hours without the PDF watermark, or 24 hours of one premium tool (OCR,
+Merge, Split, PDF to Images, Compress PDF, Compare); the gate for a premium
+tool appears only when a video can be shown, so Expo Go and users without
+consent keep every tool. The watermark ("Scanned with ScanDoc") is drawn onto
+each page image by the engine before the PDF is written (Images.stamp), so it
+survives any viewer; every "pdf" call site passes ads.pdfWatermark. Typecheck
+and 49 tests pass; the debug build compiled with the engine change.
+
+On the emulator the native ad never rendered: the SDK logged "Incorrect
+native ad response. Click actions were not properly specified" and the
+library reported [googleMobileAds/internal-error] for both the NATIVE and
+NATIVE_VIDEO test units, while banner, interstitial, rewarded and app-open
+test units load on the same device. The card handles that by never appearing
+(one retry after 20 s, then nothing), so the screens are unaffected. An ANR
+trace read as root showed the SDK decoding that response on the main thread
+(Uri.decode inside play-services-ads 25.4.0), which on this loaded emulator
+exceeded the input timeout; on a phone the same work takes milliseconds. To
+confirm on a device: open Home in the debug build and expect a "Test Ad"
+native card at the bottom within a few seconds; if the same log line appears
+there, the native unit or its format settings in AdMob need attention (the
+production unit is Native Advanced, ca-app-pub-5067154930063661/1204296600).
+The rewards rows in Settings, the premium gate and a watermarked page were
+not yet exercised on the device when this was written; they are the next
+check after the emulator recovers.
+
 The light-mode "black strip at the top" reported from a phone was reproduced
 in Expo Go on the emulator with 3-button navigation and diagnosed on the
 device rather than by reasoning. Measured from inside the running app, the top

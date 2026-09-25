@@ -37,6 +37,7 @@ import {
 } from "../../src/services/storage";
 import { TRASH_RETENTION_DAYS } from "../../src/services/library.mjs";
 import { FOLDER_HINT, exportDirectory, saveToDevice } from "../../src/services/saveToDevice";
+import { NativeAdCard } from "../../src/features/ads/NativeAdCard";
 
 type Sort = "Recent" | "Name" | "Largest";
 const SORTS: Sort[] = ["Recent", "Name", "Largest"];
@@ -451,6 +452,7 @@ export default function Documents() {
           )}
           initialNumToRender={12}
           windowSize={5}
+          ListFooterComponent={visible.length ? <NativeAdCard style={{ marginTop: 8, marginBottom: 12 }} /> : null}
           ListEmptyComponent={
             <EmptyState
               title={

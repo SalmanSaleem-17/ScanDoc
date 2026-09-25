@@ -17,6 +17,7 @@ import {
   type IconName,
 } from "../../src/components/ui";
 import { FolderArt, ScanArt } from "../../src/components/art";
+import { NativeAdCard } from "../../src/features/ads/NativeAdCard";
 import { useTheme, type Tone } from "../../src/theme/provider";
 import { useDocuments } from "../../src/features/documents/provider";
 import { useImport } from "../../src/features/documents/useImport";
@@ -202,6 +203,7 @@ export default function Home() {
           }
         />
       )}
+      <NativeAdCard />
       <View style={{ height: 8 }} />
       <Label style={{ fontSize: 12, color: colors.secondary, textAlign: "center" }}>
         <Icon name="shield-checkmark-outline" size={12} color={colors.success} /> Documents never leave this device.

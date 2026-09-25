@@ -4,9 +4,10 @@
 // The rules are deliberately conservative for a tool people open to get a
 // page scanned and leave: full-screen ads only at natural breaks, never over
 // the camera or the editor, never in the first moments of a session, and a
-// rewarded video buys an ad-free hour that stacks if watched again.
+// rewarded video buys 15 ad-free minutes that stack if watched again.
 
-export const AD_FREE_REWARD_MS = 60 * 60 * 1000;
+// The rewarded video's ad-free period; the other rewards live in rewards.mjs.
+export const AD_FREE_REWARD_MS = 15 * 60 * 1000;
 export const INTERSTITIAL_WARMUP_MS = 90 * 1000;
 export const INTERSTITIAL_MIN_INTERVAL_MS = 3 * 60 * 1000;
 export const INTERSTITIAL_MAX_PER_SESSION = 6;

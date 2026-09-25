@@ -45,6 +45,7 @@ export default function Ocr() {
       title="Text & smart naming"
       subtitle="Offline English OCR · Review recognition before saving."
       native
+      premium="ocr"
     >
       <DocumentPicker
         title="Choose document"
