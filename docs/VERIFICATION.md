@@ -59,10 +59,17 @@ export, expo-doctor 21/21 and the fingerprint step. Two upstream traps were
 handled: the library's Gradle script needs the root-level
 react-native-google-mobile-ads key in app.json (a typo in its "key absent"
 branch otherwise fails the build), and a stale generated autolinking file had
-to be cleared after the package rename. A local debug build with the SDK, the
-merged manifest showing AD_ID, and the consent form plus a test banner on the
-emulator were still being confirmed when this was committed; the results are
-recorded in the following commit.
+to be cleared after the package rename. The native side was then confirmed on
+the emulator rather than assumed: a local debug build with the SDK succeeded
+(Gradle, 17 min), autolinking reported com.scandoc.scanner, and the merged
+manifest carries com.google.android.gms.permission.AD_ID and the AdMob
+APPLICATION_ID. In the installed dev client, logcat showed the UMP consent
+request complete, the Mobile Ads SDK initialise, and four requests marked
+"sent from a test device" (the banner plus the interstitial, rewarded and
+app-open preloads). Screenshots of Home and Settings show the "Test Ad"
+adaptive banner directly above the tab bar with the status bar and the rest of
+the layout unchanged; no interstitial appeared during the 90-second warm-up,
+as the policy requires.
 
 The light-mode "black strip at the top" reported from a phone was reproduced
 in Expo Go on the emulator with 3-button navigation and diagnosed on the
