@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Image, InteractionManager, Text, View, type ViewStyle } from "react-native";
+import { Image, Text, View, type ViewStyle } from "react-native";
 import { useTheme } from "../../theme/provider";
 import { loadAdsModule, type AdsModule } from "./module";
 import { adUnits } from "./config";
@@ -11,8 +11,8 @@ type NativeAd = Awaited<ReturnType<AdsModule["NativeAd"]["createForAdRequest"]>>
 // mounted once visited, so without sharing each would issue its own request
 // and the SDK would parse four responses at once on the main thread; with it
 // there is one request, refreshed only after it has been shown for a while.
-// The request is also deferred until the first screen has painted and the
-// JS thread is idle, so it never competes with start-up.
+// The request is also deferred a few seconds after the card mounts, so it
+// never competes with start-up.
 const REFRESH_AFTER_MS = 3 * 60 * 1000;
 const FIRST_REQUEST_DELAY_MS = 4000;
 const RETRY_DELAY_MS = 20_000;
@@ -61,18 +61,14 @@ export function NativeAdCard({ style }: { style?: ViewStyle }) {
   useEffect(() => {
     if (!ads || !adsEnabled) return;
     let live = true;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const handle = InteractionManager.runAfterInteractions(() => {
-      timer = setTimeout(() => {
-        void loadShared(ads).then((result) => {
-          if (live) setAd(result);
-        });
-      }, FIRST_REQUEST_DELAY_MS);
-    });
+    const timer = setTimeout(() => {
+      void loadShared(ads).then((result) => {
+        if (live) setAd(result);
+      });
+    }, FIRST_REQUEST_DELAY_MS);
     return () => {
       live = false;
-      handle.cancel();
-      if (timer) clearTimeout(timer);
+      clearTimeout(timer);
     };
   }, [ads, adsEnabled]);
   if (!ads || !adsEnabled || !ad) return null;

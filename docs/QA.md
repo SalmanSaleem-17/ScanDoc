@@ -65,6 +65,11 @@ Status: four native engine tests pass on an Android 14 emulator; TypeScript, ele
 - Read Text: "Take photo" opens the camera, "From gallery" the photo picker; either imports the photo into the library and reads it straight away. Copy puts the text on the clipboard (paste it elsewhere to confirm); the word and character count updates as the text is edited; Export TXT names the file after the suggested document name.
 - Save to device (PDFs): the first save asks for a folder through the system picker and later saves reuse it; Settings → Storage shows the folder name and lets you change it; a saved PDF opens from the Files app. Delete the chosen folder and save again: the picker reappears once.
 
+## Release build (R8)
+
+- Install a release APK (or the Play internal-testing build): every native tool runs (scan with live edges, OCR, merge, split, PDF to images, compress), because R8 keeps `expo.modules.scandoc`, OpenCV and Tesseract classes; an R8-stripped class would surface as "could not find" errors or a silent engine failure.
+- Play Console: the "no deobfuscation file" warning is gone for the new version code.
+
 ## Visual design (light and dark)
 
 - Home: brand header with round Search and Settings buttons; the scan card shows the SCAN chip, "Scan a Document", the Scan Now button and the vector phone illustration in both themes; Quick Tools is a 4×2 grid of tinted tiles; "Resume N unfinished scans" appears only when drafts exist; the empty Recent state shows the folder illustration with Scan Document and Import Files side by side.

@@ -73,6 +73,16 @@
           "optimizeInitialization": true,
           "optimizeAdLoading": true
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "extraProguardRules": "# ScanDoc engine: Expo modules are found by name and their view props by reflection.\n-keep class expo.modules.scandoc.** { *; }\n# OpenCV and Tesseract are called from JNI by class and method name.\n-keep class org.opencv.** { *; }\n-keep class com.googlecode.tesseract.android.** { *; }\n-keep class com.googlecode.leptonica.android.** { *; }\n# Keep the mapping readable for Play crash reports.\n-keepattributes SourceFile,LineNumberTable\n-renamesourcefileattribute SourceFile"
+          }
+        }
       ]
     ],
     "extra": {
