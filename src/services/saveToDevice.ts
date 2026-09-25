@@ -7,8 +7,8 @@ import {
 } from "expo-file-system/legacy";
 import { documentUri } from "./storage";
 import { exportFileName } from "./library.mjs";
-import type { LocalDocument } from "../types/document";
 import { beginSystemFlow } from "../features/ads/systemFlow";
+import type { LocalDocument } from "../types/document";
 
 // "Save to device" writes a copy of a document into a folder the person picks
 // through Android's own folder chooser (Storage Access Framework), typically
@@ -89,4 +89,27 @@ export async function saveToDevice(document: LocalDocument): Promise<SaveOutcome
     if (!next) return { status: "cancelled" };
     return writeCopy(document, next);
   }
+}
+
+// Images belong in the gallery, where every other app looks for them; PDFs
+// belong in a folder the person can browse with Files. saveDocument routes
+// each kind to the right place so screens only need one "Save" action.
+export type SaveDestination = "gallery" | "folder";
+
+export async function saveImageToGallery(document: LocalDocument): Promise<SaveOutcome> {
+  const MediaLibrary = await import("expo-media-library");
+  beginSystemFlow();
+  const permission = await MediaLibrary.requestPermissionsAsync(true);
+  if (!permission.granted) return { status: "cancelled" };
+  await MediaLibrary.saveToLibraryAsync(documentUri(document));
+  return { status: "saved", uri: documentUri(document), name: exportFileName(document.name, document.kind) };
+}
+
+/** Where a document goes when saved: images to the gallery, PDFs to the folder. */
+export function saveDestination(document: LocalDocument): SaveDestination {
+  return document.kind === "image" ? "gallery" : "folder";
+}
+
+export function saveDocument(document: LocalDocument): Promise<SaveOutcome> {
+  return saveDestination(document) === "gallery" ? saveImageToGallery(document) : saveToDevice(document);
 }

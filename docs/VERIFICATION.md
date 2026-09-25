@@ -119,7 +119,7 @@ Native ads, rewards and the watermark (2026-09-25). The banner is gone; one
 native ad card (NativeAdCard.tsx) is the last item of Home, Tools, Settings
 and the Documents list, taking no space until an ad has loaded. Rewards
 (rewards.mjs, 6 tests): one rewarded unit buys 15 ad-free minutes (stacking),
-24 hours without the PDF watermark, or 24 hours of one premium tool (OCR,
+4 hours without the PDF watermark, or 4 hours of one premium tool (OCR,
 Merge, Split, PDF to Images, Compress PDF, Compare); the gate for a premium
 tool appears only when a video can be shown, so Expo Go and users without
 consent keep every tool. The watermark ("Scanned with ScanDoc") is drawn onto
@@ -140,9 +140,21 @@ confirm on a device: open Home in the debug build and expect a "Test Ad"
 native card at the bottom within a few seconds; if the same log line appears
 there, the native unit or its format settings in AdMob need attention (the
 production unit is Native Advanced, ca-app-pub-5067154930063661/1204296600).
-The rewards rows in Settings, the premium gate and a watermarked page were
-not yet exercised on the device when this was written; they are the next
-check after the emulator recovers.
+Follow-up the same day: the Merge gate rendered on the emulator with the
+video button enabled, the rewarded test video played to its end card, and
+the rewards rows in Settings rendered (durations now 15 min / 4 h / 4 h).
+The end card's close control never became reachable on the emulator (its
+WebView also drew the video black), so the unlock could not be completed
+there; the flow up to the reward is verified, the grant itself is covered by
+tests/rewards.test.mjs and needs one run on a phone. While the four tab
+screens each requested their own native ad, the app ANR'd repeatedly on
+Home under emulator load; the card now shares a single request across all
+cards, deferred until after first paint and JS idle, with one retry and a
+three-minute refresh. Images now save to the gallery through
+expo-media-library (write-only; the read-media permissions the plugin adds
+are blocked in app.json and absent from the merged manifest), PDFs to the
+export folder, and Read Text can take or pick a photo and copy the result;
+these compiled and typecheck, and their on-device pass is still pending.
 
 The light-mode "black strip at the top" reported from a phone was reproduced
 in Expo Go on the emulator with 3-button navigation and diagnosed on the

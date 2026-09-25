@@ -44,6 +44,8 @@ Install/open the ScanDoc development app, rather than Expo Go. Native dependency
 
 - Home, Documents, Tools, Settings behind a floating tab bar with a raised Scan button; light/dark/system themes with a shared token set (surfaces, tinted tool tiles, hero gradient) and vector illustrations that follow the theme.
 - Private filesystem storage, SQLite metadata, import, search, sorting (remembered), rename, share/export and recoverable trash.
+- Save routes by kind: images go to the device gallery (one-time photos permission), PDFs to a folder chosen once through the system folder picker and remembered in Settings.
+- Read Text takes a photo or picks one from the gallery, reads it at once, and offers Copy, Share and Export TXT.
 - Long-press a document to select several: merge them into one PDF in the order selected, move them to Trash, or restore / delete forever from the Trash filter. The Android back gesture cancels a selection.
 - The document screen shows a first-page render for PDFs (cached at two sizes) with Share, Rename, Tools and Trash as one action row.
 - Scanning falls back from the native live-detection camera to the standard camera if the native view fails or never starts streaming, so capture works on every device.
@@ -51,7 +53,7 @@ Install/open the ScanDoc development app, rather than Expo Go. Native dependency
 - Multi-page drafts shown as a numbered page grid under the document name: tap a page to edit, move or remove it; add pages from the camera or gallery; four-corner perspective crop and contrast enhancement; PDF export with an optional size limit.
 - Full-screen crop editor: drag corners, drag an edge to slide it, drag inside the frame to move the whole selection, with a magnifier under the fingertip, a dimmed discard area, automatic edge detection, 90-degree rotation and fine-adjust nudges for precise or screen-reader use.
 - Quality warnings for possible blur, excessive brightness/darkness and content at the frame edge. These are heuristics requiring user review.
-- Free, supported by a small number of Google AdMob ads: consent-first, a native card at the end of each tab screen (no banner), never over the camera or editor. One rewarded video buys 15 ad-free minutes, 24 hours without the PDF watermark, or 24 hours of a premium tool (OCR, Merge, Split, PDF to Images, Compress PDF, Compare); tools are never blocked when a video cannot be shown, so Expo Go keeps every feature.
+- Free, supported by a small number of Google AdMob ads: consent-first, a native card at the end of each tab screen (no banner), never over the camera or editor. One rewarded video buys 15 ad-free minutes, 4 hours without the PDF watermark, or 4 hours of a premium tool (OCR, Merge, Split, PDF to Images, Compress PDF, Compare); tools are never blocked when a video cannot be shown, so Expo Go keeps every feature.
 - Bundled English OCR with page preparation: lighting is flattened, skew straightened and the page binarised before recognition, full-page layout analysis is enabled, the source resolution is declared, and pages that read poorly are retried in the other three orientations. Editable recognized text, local full-text search and editable suggested names.
 - Document, Receipt, Study and Book presets; receipt/study export runs OCR and assigns a folder.
 - Rectangle-based pixel redaction and image-only PDF export without the source PDF text/attachments.

@@ -176,12 +176,12 @@ function PremiumGate({ feature }: { feature: PremiumFeature }) {
         {`${name} is free with a short video`}
       </Label>
       <Label style={{ color: colors.secondary, fontSize: 14, textAlign: "center", maxWidth: 300 }}>
-        Other apps sell this tool. Here one video unlocks it for 24 hours, on
-        this device, with nothing to sign up for.
+        Other apps sell this tool. Here one short video unlocks it for 4 hours,
+        on this device, with nothing to sign up for.
       </Label>
       <View style={{ width: "100%", marginTop: 4 }}>
         <Button
-          title={busy ? "Loading video…" : ads.rewardedReady ? "Watch video · unlock for 24 hours" : "Video loading…"}
+          title={busy ? "Loading video…" : ads.rewardedReady ? "Watch video · unlock for 4 hours" : "Video loading…"}
           icon="play-circle-outline"
           disabled={busy || !ads.rewardedReady}
           onPress={() => {

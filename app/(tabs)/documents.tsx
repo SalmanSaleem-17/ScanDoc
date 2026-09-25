@@ -36,7 +36,7 @@ import {
   trashDocument,
 } from "../../src/services/storage";
 import { TRASH_RETENTION_DAYS } from "../../src/services/library.mjs";
-import { FOLDER_HINT, exportDirectory, saveToDevice } from "../../src/services/saveToDevice";
+import { FOLDER_HINT, exportDirectory, saveDestination, saveDocument } from "../../src/services/saveToDevice";
 import { NativeAdCard } from "../../src/features/ads/NativeAdCard";
 
 type Sort = "Recent" | "Name" | "Largest";
@@ -208,8 +208,9 @@ export default function Documents() {
       .filter((d): d is NonNullable<typeof d> => !!d);
     let saved = 0;
     let failed = 0;
-    // First time only: say what the folder picker will and will not accept.
-    if (!(await exportDirectory())) {
+    // First time only, and only when a PDF is among them: say what the folder
+    // picker will and will not accept. Images go to the gallery.
+    if (chosen.some((d) => saveDestination(d) === "folder") && !(await exportDirectory())) {
       const proceed = await new Promise<boolean>((resolve) =>
         Alert.alert("Choose a folder", FOLDER_HINT, [
           { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
@@ -222,7 +223,7 @@ export default function Documents() {
     try {
       for (const document of chosen) {
         try {
-          const outcome = await saveToDevice(document);
+          const outcome = await saveDocument(document);
           if (outcome.status === "cancelled") break;
           saved++;
         } catch {
@@ -235,8 +236,8 @@ export default function Documents() {
     if (saved) setSelected([]);
     if (saved || failed)
       Alert.alert(
-        failed ? "Saved with problems" : "Saved to device",
-        `${saved} saved to your export folder${failed ? `, ${failed} could not be written` : ""}. Change the folder in Settings → Storage.`,
+        failed ? "Saved with problems" : "Saved",
+        `${saved} saved: images to your gallery, PDFs to your export folder${failed ? `; ${failed} could not be written` : ""}. Change the folder in Settings → Storage.`,
       );
   }
   function confirmSelection(
@@ -523,7 +524,7 @@ export default function Documents() {
               />
               <IconAction
                 name="download-outline"
-                title="Save to device"
+                title="Save"
                 disabled={!!working}
                 onPress={() => void saveSelection()}
               />

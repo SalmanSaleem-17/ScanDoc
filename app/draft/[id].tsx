@@ -258,7 +258,7 @@ export default function DraftScreen() {
           detail={
             ads.watermarkFree
               ? `PDFs are clean for another ${describeTimeLeft(ads.rewards.watermarkFreeUntil)}.`
-              : `New PDFs carry a small "${WATERMARK_TEXT}" mark. Watch a short video to remove it for 24 hours.`
+              : `New PDFs carry a small "${WATERMARK_TEXT}" mark. Watch a short video to remove it for 4 hours.`
           }
           disabled={ads.watermarkFree || !ads.canRequestAds || task.busy}
           onPress={() =>

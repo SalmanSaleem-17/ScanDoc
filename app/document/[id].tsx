@@ -33,7 +33,7 @@ import {
 } from "../../src/services/storage";
 import { shareDocument } from "../../src/features/documents/actions";
 import { usePreview } from "../../src/features/documents/thumbnails";
-import { FOLDER_HINT, exportDirectory, saveToDevice } from "../../src/services/saveToDevice";
+import { FOLDER_HINT, exportDirectory, saveDestination, saveDocument } from "../../src/services/saveToDevice";
 import { hasEngine } from "../../src/services/engine";
 import { useTheme } from "../../src/theme/provider";
 import { formatBytes } from "../../src/utils/files.mjs";
@@ -247,11 +247,11 @@ function DocumentView({ document }: { document: LocalDocument }) {
             onPress={() => perform(() => shareDocument(document))}
           />
           <IconAction
-            name="download-outline"
-            title="Save"
+            name={saveDestination(document) === "gallery" ? "images-outline" : "download-outline"}
+            title={saveDestination(document) === "gallery" ? "Gallery" : "Save"}
             disabled={busy}
             onPress={async () => {
-              if (!(await exportDirectory())) {
+              if (saveDestination(document) === "folder" && !(await exportDirectory())) {
                 const proceed = await new Promise<boolean>((resolve) =>
                   Alert.alert("Choose a folder", FOLDER_HINT, [
                     { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
@@ -261,11 +261,13 @@ function DocumentView({ document }: { document: LocalDocument }) {
                 if (!proceed) return;
               }
               void perform(async () => {
-                const outcome = await saveToDevice(document);
+                const outcome = await saveDocument(document);
                 if (outcome.status === "saved")
                   Alert.alert(
-                    "Saved to device",
-                    `"${outcome.name}" is in your chosen folder. Change the folder in Settings → Storage.`,
+                    saveDestination(document) === "gallery" ? "Saved to gallery" : "Saved to device",
+                    saveDestination(document) === "gallery"
+                      ? `"${outcome.name}" is now in your photo gallery.`
+                      : `"${outcome.name}" is in your chosen folder. Change the folder in Settings → Storage.`,
                   );
               });
             }}

@@ -21,10 +21,10 @@ const NOW = 1_800_000_000_000;
 const MIN = 60_000;
 const HOUR = 60 * MIN;
 
-test("rewards are 15 minutes ad-free, 24 hours watermark-free, 24 hours per feature", () => {
+test("rewards are 15 minutes ad-free, 4 hours watermark-free, 4 hours per feature", () => {
   assert.equal(AD_FREE_REWARD_MS, 15 * MIN);
-  assert.equal(WATERMARK_FREE_MS, 24 * HOUR);
-  assert.equal(FEATURE_UNLOCK_MS, 24 * HOUR);
+  assert.equal(WATERMARK_FREE_MS, 4 * HOUR);
+  assert.equal(FEATURE_UNLOCK_MS, 4 * HOUR);
   assert.deepEqual(Object.keys(PREMIUM_FEATURES), ["ocr", "merge", "split", "pdfToImages", "compressPdf", "compare"]);
 });
 
@@ -49,13 +49,13 @@ test("ad-free stacks; watermark and feature unlocks extend from the later expiry
   r = grantReward(r, "adFree", NOW + 5 * MIN);
   assert.equal(r.adFreeUntil, NOW + 30 * MIN, "a second video adds to what is left");
   r = grantReward(r, "watermark", NOW);
-  assert.equal(r.watermarkFreeUntil, NOW + 24 * HOUR);
+  assert.equal(r.watermarkFreeUntil, NOW + 4 * HOUR);
   r = grantReward(r, "watermark", NOW + HOUR);
-  assert.equal(r.watermarkFreeUntil, NOW + 48 * HOUR);
+  assert.equal(r.watermarkFreeUntil, NOW + 8 * HOUR);
   r = grantReward(r, "merge", NOW);
-  assert.equal(r.unlocks.merge, NOW + 24 * HOUR);
-  assert.equal(isFeatureUnlocked(r, "merge", NOW + 23 * HOUR), true);
-  assert.equal(isFeatureUnlocked(r, "merge", NOW + 25 * HOUR), false);
+  assert.equal(r.unlocks.merge, NOW + 4 * HOUR);
+  assert.equal(isFeatureUnlocked(r, "merge", NOW + 3 * HOUR), true);
+  assert.equal(isFeatureUnlocked(r, "merge", NOW + 5 * HOUR), false);
   assert.equal(isFeatureUnlocked(r, "split", NOW), false);
   assert.throws(() => grantReward(r, "unknown", NOW), /Unknown reward/);
 });
@@ -65,7 +65,7 @@ test("the watermark disappears only while the reward is active", () => {
   const r = grantReward(null, "watermark", NOW);
   assert.equal(isWatermarkFree(r, NOW + 1), true);
   assert.equal(pdfWatermark(r, NOW + 1), undefined);
-  assert.equal(pdfWatermark(r, NOW + 24 * HOUR), WATERMARK_TEXT);
+  assert.equal(pdfWatermark(r, NOW + 4 * HOUR), WATERMARK_TEXT);
 });
 
 test("time left is described in whole minutes and hours", () => {
@@ -77,9 +77,12 @@ test("time left is described in whole minutes and hours", () => {
   assert.equal(describeTimeLeft(null, NOW), "");
 });
 
-test("a premium tool is gated only when a video can actually be shown", () => {
+test("a premium tool is gated only when a video can actually be shown, ad-free or not", () => {
   const base = { feature: "ocr", available: true, canRequestAds: true, rewards: emptyRewards() };
   assert.deepEqual(shouldGateFeature(base, NOW), { gate: true, reason: "locked" });
+  const adFree = grantReward(null, "adFree", NOW);
+  assert.equal(shouldGateFeature({ ...base, rewards: adFree }, NOW).gate, true, "an ad-free period does not unlock tools; the video for them stays available");
+  assert.equal(pdfWatermark(adFree, NOW), WATERMARK_TEXT, "nor does it remove the watermark");
   assert.equal(shouldGateFeature({ ...base, available: false }, NOW).reason, "no-ads-module");
   assert.equal(shouldGateFeature({ ...base, canRequestAds: false }, NOW).reason, "no-consent");
   assert.equal(shouldGateFeature({ ...base, feature: "receipts" }, NOW).reason, "not-premium");

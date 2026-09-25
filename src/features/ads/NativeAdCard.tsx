@@ -1,11 +1,50 @@
 import { useEffect, useState } from "react";
-import { Image, Text, View, type ViewStyle } from "react-native";
+import { Image, InteractionManager, Text, View, type ViewStyle } from "react-native";
 import { useTheme } from "../../theme/provider";
 import { loadAdsModule, type AdsModule } from "./module";
 import { adUnits } from "./config";
 import { useAds } from "./provider";
 
 type NativeAd = Awaited<ReturnType<AdsModule["NativeAd"]["createForAdRequest"]>>;
+
+// One native ad is shared by every card on screen. The tab screens all stay
+// mounted once visited, so without sharing each would issue its own request
+// and the SDK would parse four responses at once on the main thread; with it
+// there is one request, refreshed only after it has been shown for a while.
+// The request is also deferred until the first screen has painted and the
+// JS thread is idle, so it never competes with start-up.
+const REFRESH_AFTER_MS = 3 * 60 * 1000;
+const FIRST_REQUEST_DELAY_MS = 4000;
+const RETRY_DELAY_MS = 20_000;
+let shared: { ad: NativeAd; loadedAt: number } | null = null;
+let pending: Promise<NativeAd | null> | null = null;
+
+function loadShared(ads: AdsModule, attempt = 0): Promise<NativeAd | null> {
+  if (shared && Date.now() - shared.loadedAt < REFRESH_AFTER_MS) return Promise.resolve(shared.ad);
+  if (pending) return pending;
+  const unit = attempt === 0 || !__DEV__ ? adUnits().native : ads.TestIds.NATIVE_VIDEO;
+  pending = ads.NativeAd.createForAdRequest(unit, { requestNonPersonalizedAdsOnly: false })
+    .then((ad) => {
+      shared?.ad.destroy();
+      shared = { ad, loadedAt: Date.now() };
+      return ad;
+    })
+    .catch((error: unknown) => {
+      if (__DEV__) console.warn("[NativeAdCard] load failed:", String(error));
+      if (attempt < 1)
+        return new Promise<NativeAd | null>((resolve) =>
+          setTimeout(() => {
+            pending = null;
+            resolve(loadShared(ads, attempt + 1));
+          }, RETRY_DELAY_MS),
+        );
+      return null;
+    })
+    .finally(() => {
+      pending = null;
+    });
+  return pending;
+}
 
 /**
  * The one in-feed placement: a native ad drawn in the app's own card style at
@@ -22,36 +61,18 @@ export function NativeAdCard({ style }: { style?: ViewStyle }) {
   useEffect(() => {
     if (!ads || !adsEnabled) return;
     let live = true;
-    let loaded: NativeAd | null = null;
-    // One request, one retry a little later: native fill is patchier than
-    // banners, and a screen that stays open deserves a second look. A card
-    // that never loads simply never appears.
-    const units = [adUnits().native, __DEV__ ? ads.TestIds.NATIVE_VIDEO : adUnits().native];
-    let attempt = 0;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const request = () => {
-      ads.NativeAd.createForAdRequest(units[Math.min(attempt, units.length - 1)], {
-        requestNonPersonalizedAdsOnly: false,
-      })
-        .then((result) => {
-          if (!live) return result.destroy();
-          loaded = result;
-          setAd(result);
-        })
-        .catch((error: unknown) => {
-          if (__DEV__) console.warn("[NativeAdCard] load failed:", String(error));
-          if (live && attempt < 1) {
-            attempt += 1;
-            timer = setTimeout(request, 20_000);
-          }
+    const handle = InteractionManager.runAfterInteractions(() => {
+      timer = setTimeout(() => {
+        void loadShared(ads).then((result) => {
+          if (live) setAd(result);
         });
-    };
-    request();
+      }, FIRST_REQUEST_DELAY_MS);
+    });
     return () => {
       live = false;
+      handle.cancel();
       if (timer) clearTimeout(timer);
-      loaded?.destroy();
-      setAd(null);
     };
   }, [ads, adsEnabled]);
   if (!ads || !adsEnabled || !ad) return null;

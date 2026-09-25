@@ -2,8 +2,12 @@
 // pinned by tests. One rewarded unit serves three purposes:
 //
 //  - "adFree":    no ads at all for the next 15 minutes (stacks if repeated);
-//  - "watermark": PDFs created in the next 24 hours carry no watermark;
-//  - a feature:   one premium tool is unlocked for 24 hours.
+//  - "watermark": PDFs created in the next 4 hours carry no watermark;
+//  - a feature:   one premium tool is unlocked for 4 hours.
+//
+// The three are independent: a person who is ad-free can still watch a video
+// for the watermark or a tool (rewarded videos are never counted as "ads"
+// that the ad-free period removes), and each reward runs on its own clock.
 //
 // Tools are never blocked by an ad that cannot be shown: when the module is
 // absent (Expo Go) or consent forbids ad requests, every tool is open (see
@@ -11,8 +15,8 @@
 // since it costs the person nothing but a line of small text.
 
 export const AD_FREE_REWARD_MS = 15 * 60 * 1000;
-export const WATERMARK_FREE_MS = 24 * 60 * 60 * 1000;
-export const FEATURE_UNLOCK_MS = 24 * 60 * 60 * 1000;
+export const WATERMARK_FREE_MS = 4 * 60 * 60 * 1000;
+export const FEATURE_UNLOCK_MS = 4 * 60 * 60 * 1000;
 export const WATERMARK_TEXT = "Scanned with ScanDoc";
 
 /** Tools that other scanner apps sell; here a short video unlocks them for a day. */
@@ -58,7 +62,7 @@ function extend(current, now, duration) {
 
 /**
  * Applies a reward. Ad-free time stacks (watching twice gives 30 minutes);
- * the watermark and feature unlocks are a fresh 24 hours from the later of
+ * the watermark and feature unlocks are a fresh 4 hours from the later of
  * now and the current expiry, so watching early never shortens what was left.
  */
 export function grantReward(rewards, purpose, now = Date.now()) {

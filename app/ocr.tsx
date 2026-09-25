@@ -1,15 +1,19 @@
 import { useRef, useState } from "react";
-import { Alert, Share } from "react-native";
+import { Alert, Share, View } from "react-native";
+import * as Clipboard from "expo-clipboard";
+import * as ImagePicker from "expo-image-picker";
 import { File, Directory, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import * as Crypto from "expo-crypto";
 import {
   Button,
   Card,
+  IconAction,
   Label,
   SegmentedControl,
   Toggle,
 } from "../src/components/ui";
+import { useTheme } from "../src/theme/provider";
 import {
   DocumentPicker,
   WorkspaceScreen,
@@ -19,7 +23,7 @@ import {
 } from "../src/features/workflows/components";
 import type { LocalDocument } from "../src/types/document";
 import { getText, saveText, putFolder } from "../src/services/workspace";
-import { renameDocument } from "../src/services/storage";
+import { importFile, renameDocument } from "../src/services/storage";
 import {
   recognizeDocument,
   type OcrLayout,
@@ -40,27 +44,91 @@ export default function Ocr() {
   const [folder, setFolder] = useState("");
   const task = useTask();
   const { refresh } = useDocuments();
+  const { colors } = useTheme();
+  const options = { layout, preprocess, deskew: preprocess, autoRotate };
+  function select(d: LocalDocument) {
+    selection.current = d.id;
+    setDocument(d);
+    setConfidence(undefined);
+    setRotated(0);
+    setName(d.name);
+    setText("");
+    void getText(d.id)
+      .then((value) => {
+        if (selection.current === d.id) setText(value);
+      })
+      .catch(() => {});
+  }
+  async function recognize(
+    target: LocalDocument,
+    signal: AbortSignal,
+    progress: (text: string) => void,
+  ) {
+    const result = await recognizeDocument(target, signal, progress, options);
+    setText(result.text);
+    setConfidence(result.confidence);
+    setRotated(result.rotated);
+    setName(
+      suggestName(
+        result.text,
+        target.kind === "pdf" ? "pdf" : target.path.split(".").pop(),
+      ),
+    );
+    if (!result.text.trim())
+      Alert.alert(
+        "No readable text",
+        "Try a sharper, evenly lit image. English recognition is supported in this build.",
+      );
+  }
+  // A photo taken or picked here is imported into the library first (so the
+  // text has a document to belong to), then read straight away.
+  function captureAndRead(source: "camera" | "gallery") {
+    void task.run(async (signal, progress) => {
+      beginSystemFlow();
+      const picked =
+        source === "camera"
+          ? await ImagePicker.launchCameraAsync({ mediaTypes: ["images"], quality: 1 })
+          : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 1 });
+      if (picked.canceled || !picked.assets[0]) return;
+      progress("Saving the photo…");
+      const asset = picked.assets[0];
+      const imported = await importFile(
+        asset.uri,
+        asset.fileName || `Photo_${Date.now()}.jpg`,
+        source === "camera" ? "camera" : "import",
+      );
+      await refresh();
+      select(imported);
+      await recognize(imported, signal, progress);
+    });
+  }
   return (
     <WorkspaceScreen
-      title="Text & smart naming"
-      subtitle="Offline English OCR · Review recognition before saving."
+      title="Read Text (OCR)"
+      subtitle="Offline English recognition · check names, dates and amounts."
       native
       premium="ocr"
     >
+      <View style={{ flexDirection: "row", gap: 8 }}>
+        <IconAction
+          name="camera-outline"
+          title="Take photo"
+          disabled={task.busy}
+          onPress={() => captureAndRead("camera")}
+        />
+        <IconAction
+          name="images-outline"
+          title="From gallery"
+          disabled={task.busy}
+          onPress={() => captureAndRead("gallery")}
+        />
+      </View>
       <DocumentPicker
-        title="Choose document"
+        title="Or choose a document"
         value={document}
         onSelect={(d) => {
           if (task.busy) return;
-          selection.current=d.id;
-          setDocument(d);
-          setConfidence(undefined);
-          setRotated(0);
-          setName(d.name);
-          setText("");
-          void getText(d.id)
-            .then(value => { if(selection.current===d.id) setText(value); })
-            .catch(() => {});
+          select(d);
         }}
       />
       <SegmentedControl<OcrLayout>
@@ -89,33 +157,11 @@ export default function Ocr() {
       />
       <TaskStatus task={task} />
       <Button
-        title="Recognize all pages"
+        title={document?.kind === "pdf" ? "Recognize all pages" : "Recognize text"}
+        icon="text-outline"
         disabled={!document || task.busy}
         onPress={() =>
-          task.run(async (signal, progress) => {
-            const result = await recognizeDocument(document!, signal, progress, {
-              layout,
-              preprocess,
-              deskew: preprocess,
-              autoRotate,
-            });
-            setText(result.text);
-            setConfidence(result.confidence);
-            setRotated(result.rotated);
-            setName(
-              suggestName(
-                result.text,
-                document!.kind === "pdf"
-                  ? "pdf"
-                  : document!.path.split(".").pop(),
-              ),
-            );
-            if (!result.text.trim())
-              Alert.alert(
-                "No readable text",
-                "Try a sharper, evenly lit image. English recognition is supported in this build.",
-              );
-          })
+          task.run((signal, progress) => recognize(document!, signal, progress))
         }
       />
       {confidence !== undefined && (
@@ -148,16 +194,62 @@ export default function Ocr() {
         onChangeText={setText}
         multiline
       />
+      {!!text.trim() && (
+        <Label style={{ fontSize: 12, color: colors.secondary }}>
+          {`${text.trim().split(/\s+/).length} words · ${text.length} characters`}
+        </Label>
+      )}
+      <View style={{ flexDirection: "row", gap: 8 }}>
+        <IconAction
+          name="copy-outline"
+          title="Copy"
+          disabled={!text.trim() || task.busy}
+          onPress={() =>
+            void Clipboard.setStringAsync(text).then(() =>
+              Alert.alert("Copied", "The text is on your clipboard."),
+            )
+          }
+        />
+        <IconAction
+          name="share-social-outline"
+          title="Share"
+          disabled={!text.trim() || task.busy}
+          onPress={() =>
+            task.run(async () => {
+              await Share.share({ message: text });
+            })
+          }
+        />
+        <IconAction
+          name="document-text-outline"
+          title="Export TXT"
+          disabled={!text.trim() || task.busy}
+          onPress={() =>
+            task.run(async () => {
+              const dir = new Directory(Paths.document, "ScanDoc", "Exports");
+              dir.create({ idempotent: true, intermediates: true });
+              const base =
+                (name || "Text")
+                  .replace(/\.[a-z0-9]+$/i, "")
+                  .replace(/[^\w.-]+/g, "_")
+                  .slice(0, 60) || "Text";
+              const file = new File(dir, `${base}_${Crypto.randomUUID().slice(0, 6)}.txt`);
+              file.write(text);
+              beginSystemFlow();
+              await Sharing.shareAsync(file.uri, { mimeType: "text/plain" });
+            })
+          }
+        />
+      </View>
       <Button
-        title="Save text to local search"
-        disabled={!document || task.busy}
+        title="Save text for search"
+        icon="search-outline"
+        secondary
+        disabled={!document || !text.trim() || task.busy}
         onPress={() =>
           task.run(async () => {
             await saveText(document!.id, text);
-            Alert.alert(
-              "Text saved",
-              "Search for words from this document in Documents.",
-            );
+            Alert.alert("Text saved", "Search for words from this document in Documents.");
           })
         }
       />
@@ -212,31 +304,6 @@ export default function Ocr() {
               "Folder saved",
               "Find the folder using document search.",
             );
-          })
-        }
-      />
-      <Button
-        title="Share text"
-        secondary
-        disabled={!text.trim() || task.busy}
-        onPress={() =>
-          task.run(async () => {
-            await Share.share({ message: text });
-          })
-        }
-      />
-      <Button
-        title="Export TXT"
-        secondary
-        disabled={!text.trim() || task.busy}
-        onPress={() =>
-          task.run(async () => {
-            const dir = new Directory(Paths.document, "ScanDoc", "Exports");
-            dir.create({ idempotent: true, intermediates: true });
-            const file = new File(dir, `Text_${Crypto.randomUUID()}.txt`);
-            file.write(text);
-            beginSystemFlow();
-            await Sharing.shareAsync(file.uri, { mimeType: "text/plain" });
           })
         }
       />

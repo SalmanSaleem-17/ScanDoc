@@ -233,7 +233,7 @@ export default function Settings() {
                 />
                 <RewardRow
                   icon="sparkles-outline"
-                  title="Remove the PDF watermark for 24 hours"
+                  title="Remove the PDF watermark for 4 hours"
                   active={ads.watermarkFree ? `No watermark for another ${describeTimeLeft(ads.rewards.watermarkFreeUntil)}` : ""}
                   ready={ads.rewardedReady}
                   onPress={() =>
@@ -247,7 +247,7 @@ export default function Settings() {
                     const open = (Object.keys(PREMIUM_FEATURES) as PremiumFeature[]).filter((f) => ads.isUnlocked(f));
                     return open.length
                       ? `Unlocked tools: ${open.map((f) => `${PREMIUM_FEATURES[f]} (${describeTimeLeft(ads.rewards.unlocks[f])})`).join(", ")}.`
-                      : "OCR, Merge, Split, PDF to Images, Compress PDF and Compare each unlock for 24 hours with a video, from inside the tool.";
+                      : "OCR, Merge, Split, PDF to Images, Compress PDF and Compare each unlock for 4 hours with a video, from inside the tool. Videos stay available while ads are off.";
                   })()}
                 </Label>
               </>
