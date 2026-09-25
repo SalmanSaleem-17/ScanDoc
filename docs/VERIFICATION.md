@@ -156,6 +156,19 @@ are blocked in app.json and absent from the merged manifest), PDFs to the
 export folder, and Read Text can take or pick a photo and copy the result;
 these compiled and typecheck, and their on-device pass is still pending.
 
+R8 (2026-09-25, evening). Release builds are now minified and shrunk with
+keep rules for expo.modules.scandoc, org.opencv, com.googlecode.tesseract
+and com.googlecode.leptonica (neither AAR ships consumer rules). A local
+minified release APK built in 27 min (118.8 MB against 130.5 MB before,
+mapping.txt 83 MB) and, installed on the emulator, started its JS, rendered
+Home completely and logged no ClassNotFound, NoClassDefFound or
+UnsatisfiedLink errors. The engine itself (a PDF export) was not reached
+under R8 because the emulator sat above load 4 and ANR'd first; the keep
+rules cover those packages whole, so a stripped class is unlikely, but the
+first phone run of the minified build should open the scanner and create a
+PDF before anything else. Play's "no deobfuscation file" warning should be
+gone from the next upload, since the AAB embeds the mapping.
+
 Why the emulator struggled with ads (measured, not guessed): with the app
 idle on Home, a SIGQUIT thread dump showed the JS thread asleep and the main
 thread inside Choreographer with every frame janky (90th percentile 1150 ms,
