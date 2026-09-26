@@ -1,6 +1,6 @@
 import * as Crypto from "expo-crypto";
 import { File, FileMode, Paths } from "expo-file-system";
-import { openDatabase, draftsDir } from "./database";
+import { openDatabase, draftsDir, transaction } from "./database";
 import { importFile } from "./storage";
 import { matchesHeader } from "../utils/files.mjs";
 export type Preset = "document" | "receipt" | "study" | "book";
@@ -89,7 +89,7 @@ export async function addPage(draftId: string, uri: string) {
     // deleted while the copy was still running, which failed the capture on
     // slower devices. The file must exist before anything refers to it.
     await source.copy(output);
-    await db.withExclusiveTransactionAsync(async (tx) => {
+    await transaction(async (tx) => {
       if (
         !(await tx.getFirstAsync("SELECT id FROM drafts WHERE id=?", draftId))
       )
@@ -157,7 +157,7 @@ export async function replacePage(page: DraftPage, uri: string) {
 export async function removePage(page: DraftPage) {
   const db = await workspaceDb();
   const source = await db.getFirstAsync<{path: string}>("SELECT path FROM draft_page_sources WHERE pageId=?", page.id);
-  await db.withExclusiveTransactionAsync(async tx => {
+  await transaction(async (tx) => {
     await tx.runAsync("DELETE FROM draft_page_sources WHERE pageId=?", page.id);
     await tx.runAsync("DELETE FROM draft_pages WHERE id=?", page.id);
   });
@@ -174,9 +174,7 @@ export async function reorderPages(
   const target = index + direction;
   if (target < 0 || target >= next.length) return;
   [next[index], next[target]] = [next[target], next[index]];
-  await (
-    await workspaceDb()
-  ).withExclusiveTransactionAsync(async (tx) => {
+  await transaction(async (tx) => {
     for (let i = 0; i < next.length; i++)
       await tx.runAsync(
         "UPDATE draft_pages SET position=? WHERE id=?",
@@ -189,7 +187,7 @@ export async function discardDraft(id: string) {
   const db = await workspaceDb();
   const pages = await listPages(id);
   const sources = await db.getAllAsync<{path: string}>("SELECT s.path FROM draft_page_sources s JOIN draft_pages p ON p.id=s.pageId WHERE p.draftId=?", id);
-  await db.withExclusiveTransactionAsync(async tx => {
+  await transaction(async (tx) => {
     await tx.runAsync("DELETE FROM draft_page_sources WHERE pageId IN (SELECT id FROM draft_pages WHERE draftId=?)", id);
     await tx.runAsync("DELETE FROM draft_pages WHERE draftId=?", id);
     await tx.runAsync("DELETE FROM drafts WHERE id=?", id);
@@ -199,9 +197,7 @@ export async function discardDraft(id: string) {
   }
 }
 export async function saveText(documentId: string, text: string) {
-  await (
-    await workspaceDb()
-  ).withExclusiveTransactionAsync(async (tx) => {
+  await transaction(async (tx) => {
     await tx.runAsync(
       "INSERT OR REPLACE INTO document_text VALUES (?,?,?)",
       documentId,
@@ -250,13 +246,10 @@ export async function searchText(query: string) {
   );
 }
 export async function putFolder(id: string, folder: string) {
-  await (
-    await workspaceDb()
-  ).runAsync(
-    "INSERT OR REPLACE INTO document_folders VALUES (?,?)",
-    id,
-    folder,
-  );
+  // Folders are rows of their own now (services/folders.ts); this stays as
+  // the presets' entry point and makes sure the folder exists.
+  const { assignFolder } = await import("./folders");
+  await assignFolder(id, folder);
 }
 export async function folders() {
   return (await workspaceDb()).getAllAsync<{
@@ -296,25 +289,4 @@ export async function storePdf(uri: string, name: string, count: number) {
     await workspaceDb()
   ).runAsync("UPDATE documents SET pageCount=? WHERE id=?", count, doc.id);
   return doc;
-}
-// Folders are a label per document (document_folders), so a folder exists
-// exactly while a document is in it; that keeps them free of housekeeping.
-export type FolderSummary = { folder: string; count: number };
-export async function folderSummary(): Promise<FolderSummary[]> {
-  return (await workspaceDb()).getAllAsync<FolderSummary>(
-    `SELECT f.folder AS folder, COUNT(*) AS count
-       FROM document_folders f JOIN documents d ON d.id = f.documentId
-      WHERE d.trashedAt IS NULL
-      GROUP BY f.folder ORDER BY lower(f.folder)`,
-  );
-}
-export async function removeFromFolder(id: string) {
-  await (await workspaceDb()).runAsync(
-    "DELETE FROM document_folders WHERE documentId=?",
-    id,
-  );
-}
-/** Trims and bounds a folder name; empty means "no folder". */
-export function cleanFolderName(name: string) {
-  return name.replace(/\s+/g, " ").trim().slice(0, 40);
 }

@@ -42,6 +42,16 @@ export const migrations = [
     version: 2,
     statements: `ALTER TABLE drafts ADD COLUMN appendTo TEXT;`,
   },
+  {
+    // Folders become rows of their own so they can be nested ("Study/Math"),
+    // exist while empty, and carry a lock. Existing labels are seeded as
+    // top-level folders so nothing already filed moves.
+    version: 3,
+    statements: `
+      CREATE TABLE IF NOT EXISTS folders (path TEXT PRIMARY KEY NOT NULL, locked INTEGER NOT NULL DEFAULT 0, createdAt INTEGER NOT NULL);
+      INSERT OR IGNORE INTO folders (path, locked, createdAt)
+        SELECT DISTINCT folder, 0, strftime('%s','now') * 1000 FROM document_folders WHERE folder <> '';`,
+  },
 ];
 
 let opening: Promise<SQLite.SQLiteDatabase> | undefined;
@@ -63,9 +73,9 @@ export function openDatabase() {
       // the cheapest correct way to bring them onto the versioned track.
       const current = row?.user_version ?? 0;
       for (const migration of pendingMigrations(current, migrations))
-        await db.withExclusiveTransactionAsync(async (tx) => {
-          await tx.execAsync(migration.statements);
-          await tx.execAsync(`PRAGMA user_version = ${migration.version}`);
+        await db.withTransactionAsync(async () => {
+          await db.execAsync(migration.statements);
+          await db.execAsync(`PRAGMA user_version = ${migration.version}`);
         });
       return db;
     })().catch((error) => {
@@ -73,4 +83,36 @@ export function openDatabase() {
       throw error;
     });
   return opening;
+}
+
+// Every write that must be atomic goes through here, on the app's one
+// connection, one transaction at a time.
+//
+// It deliberately does not use expo-sqlite's withExclusiveTransactionAsync.
+// That API opens a second native connection to the same file for each call
+// and closes it afterwards, and on Android (expo-sqlite 57.0.3) that close
+// path is unsafe: with the page memory churn of OCR the app crashed inside
+// sqlite3_close / sqlite3_finalize of the per-transaction connection, first
+// as "Scudo ERROR: invalid chunk state when deallocating" and, under libc's
+// malloc-debug with freed memory poisoned, as a SIGSEGV at a non-canonical
+// address, which is a use-after-free of that connection. The stacks are in
+// docs/VERIFICATION.md. A single connection has no such lifecycle.
+//
+// Calls are serialised through a promise chain so two transactions can never
+// nest (SQLite refuses BEGIN inside BEGIN); a failure in one does not block
+// the next. Nothing here needs cross-transaction concurrency.
+let chain: Promise<unknown> = Promise.resolve();
+export function transaction<T>(
+  work: (tx: SQLite.SQLiteDatabase) => Promise<T>,
+): Promise<T> {
+  const run = chain.then(async () => {
+    const db = await openDatabase();
+    let result!: T;
+    await db.withTransactionAsync(async () => {
+      result = await work(db);
+    });
+    return result;
+  });
+  chain = run.catch(() => {});
+  return run;
 }

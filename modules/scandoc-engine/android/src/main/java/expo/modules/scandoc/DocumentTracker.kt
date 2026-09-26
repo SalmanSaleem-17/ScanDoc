@@ -15,9 +15,18 @@ class DocumentTracker {
   private var changeSince = 0L
   private var message = "SEARCHING"; private var pending = message; private var pendingSince = 0L
   private var focusUntil = 0L
+  // The last three raw quads; the median of them is what gets smoothed, so a
+  // single frame where the detector snapped to a table edge or a shadow
+  // cannot move the overlay or reset stability.
+  private val recent = ArrayDeque<List<Point>>()
   fun focus(now: Long) { focusUntil=now+1000; stableSince=0; frames=0 }
   fun captured() { locked=raw?.map { Point(it.x,it.y) }; stableSince=0; frames=0 }
-  fun reset() { raw=null;smoothed=null;lastSeen=0;stableSince=0;frames=0;missingSince=0;changeSince=0 }
+  fun reset() { raw=null;smoothed=null;lastSeen=0;stableSince=0;frames=0;missingSince=0;changeSince=0;recent.clear() }
+  private fun median(p: List<Point>): List<Point> {
+    recent.addLast(p); while(recent.size>3) recent.removeFirst()
+    if(recent.size<3) return p
+    return p.indices.map { i -> Point(recent.map { it[i].x }.sorted()[1], recent.map { it[i].y }.sorted()[1]) }
+  }
   fun update(page: DetectedPage?, now: Long): TrackingResult {
     if(page==null) {
       stableSince=0; frames=0
@@ -27,10 +36,13 @@ class DocumentTracker {
       return TrackingResult(smoothed,if(locked!=null) "WAITING_FOR_CHANGE" else "SEARCHING",guide(if(locked!=null) "NEXT_PAGE" else "SEARCHING",now),0.0,false,1.0,null)
     }
     missingSince=0
-    val p=page.corners
+    if(now-lastSeen>350) recent.clear()
+    val p=median(page.corners)
     val motion=raw?.let { DocumentDetector.displacement(p,it) } ?: 1.0
     val same=raw!=null && motion<.12 && now-lastSeen<350
-    val alpha=if(motion<.008) .25 else .7
+    // Heavy smoothing while the page is still; a quick catch-up when it
+    // genuinely moves, but never so quick that the overlay jitters.
+    val alpha=if(motion<.006) .18 else if(motion<.03) .35 else .6
     smoothed=if(same && smoothed!=null) p.indices.map { i -> Point(smoothed!![i].x*(1-alpha)+p[i].x*alpha,smoothed!![i].y*(1-alpha)+p[i].y*alpha) } else p
     raw=p;lastSeen=now
     locked?.let { captured ->
@@ -52,7 +64,9 @@ class DocumentTracker {
       else -> "READY"
     }
     if(reason=="READY") { if(stableSince==0L)stableSince=now;frames++ } else {stableSince=0;frames=0}
-    val duration=if(page.confidence>.9)600.0 else if(page.confidence>.84)900.0 else 1250.0
+    // A confident, sharp, still page is captured after 0.7 s; a marginal one
+    // must hold for longer, so the shot is taken from a steady hand.
+    val duration=if(page.confidence>.9 && page.sharpness>90)700.0 else if(page.confidence>.84)1000.0 else 1400.0
     val progress=if(stableSince==0L)0.0 else ((now-stableSince)/duration).coerceIn(0.0,1.0)
     val ready=progress>=1 && frames>=6
     val state=when {locked!=null->"WAITING_FOR_CHANGE";ready->"CAPTURE_READY";progress>.1->"STABLE";same->"TRACKING";else->"DETECTED"}

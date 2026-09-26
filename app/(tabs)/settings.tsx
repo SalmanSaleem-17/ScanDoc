@@ -28,11 +28,16 @@ import { formatBytes } from "../../src/utils/files.mjs";
 import { useAds } from "../../src/features/ads/provider";
 import { POLICY_URL } from "../../src/features/ads/config";
 import { NativeAdCard } from "../../src/features/ads/NativeAdCard";
+import { PinGate, usePinExists, type PinMode } from "../../src/features/documents/PinGate";
+import { lockNow } from "../../src/services/pin";
+import { router } from "expo-router";
 import { PREMIUM_FEATURES, describeTimeLeft, type PremiumFeature } from "../../src/features/ads/rewards.mjs";
 import { beginSystemFlow } from "../../src/features/ads/systemFlow";
 export default function Settings() {
   const { colors, mode, setMode } = useTheme();
-  const { documents, refresh } = useDocuments();
+  const { documents, refresh, lockedPaths, unlocked } = useDocuments();
+  const [pin, setPin] = useState<PinMode | null>(null);
+  const pinExists = usePinExists(pin);
   const ads = useAds();
   const usage = libraryBytes(documents);
   const [exportDir, setExportDir] = useState<string | null>(null);
@@ -186,6 +191,42 @@ export default function Settings() {
           />
         )}
       </Card>
+      <Section title="Folders & lock" />
+      <Card style={{ gap: 14 }}>
+        <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+          <Icon name="folder-outline" />
+          <View style={{ flex: 1 }}>
+            <Label style={{ fontWeight: "600" }}>Folders</Label>
+            <Label style={{ color: colors.secondary, fontSize: 13 }}>
+              {lockedPaths.length
+                ? `${lockedPaths.length} locked ${lockedPaths.length === 1 ? "folder" : "folders"} · ${unlocked ? "unlocked for this session" : "locked"}`
+                : "Group documents by subject; lock private ones with a PIN."}
+            </Label>
+          </View>
+          <Pressable accessibilityRole="button" accessibilityLabel="Manage folders" onPress={() => router.push("/folders")} style={{ minHeight: 44, justifyContent: "center" }}>
+            <Label style={{ color: colors.blue, fontSize: 13 }}>Manage</Label>
+          </Pressable>
+        </View>
+        <View style={{ height: 1, backgroundColor: colors.border }} />
+        <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+          <Icon name={pinExists ? "keypad-outline" : "lock-closed-outline"} />
+          <View style={{ flex: 1 }}>
+            <Label style={{ fontWeight: "600" }}>Folder PIN</Label>
+            <Label style={{ color: colors.secondary, fontSize: 13 }}>
+              {pinExists === null ? "…" : pinExists ? "Set · stored only on this phone, no recovery" : "Not set · chosen when you first lock a folder"}
+            </Label>
+          </View>
+          {pinExists && (
+            <Pressable accessibilityRole="button" accessibilityLabel="Change PIN" onPress={() => setPin("change")} style={{ minHeight: 44, justifyContent: "center" }}>
+              <Label style={{ color: colors.blue, fontSize: 13 }}>Change</Label>
+            </Pressable>
+          )}
+        </View>
+        {unlocked && (
+          <Button title="Lock folders now" icon="lock-closed-outline" secondary onPress={lockNow} />
+        )}
+      </Card>
+      <PinGate visible={pin !== null} mode={pin ?? "unlock"} onDone={() => setPin(null)} onClose={() => setPin(null)} />
       <Section title="Privacy" />
       <Card style={{ gap: 16 }}>
         <View style={{ flexDirection: "row", gap: 12 }}>

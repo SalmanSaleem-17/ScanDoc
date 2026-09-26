@@ -15,19 +15,28 @@ Status: four native engine tests pass on an Android 14 emulator; TypeScript, ele
 
 ## Regressions from the first phone test (2026-09-25)
 
-- OCR must never close the app: on a large photo (12 MP) run Read Text with and without "Clean up the page first"; the result appears or an error alert names the problem. Watch `adb logcat -s ScanDocEngine` for "failed with" lines. On a low-memory device the engine reads at 1800 px instead of 3000 px.
+- OCR must never close the app: Receipt preset, import a 12 MP photo, Create PDF; then Read Text on the same photo with and without "Clean up the page first". The PDF/document appears or an error alert names the problem; no restart. (Root cause was expo-sqlite's per-transaction second connection, not OCR; see VERIFICATION.) Watch `adb logcat -s ScanDocEngine` for "failed with" lines. On a low-memory device the engine reads at 1800 px instead of 3000 px.
 - Create PDF from a draft opens the new document and the draft is gone from Home and the workspace; renaming the document does not produce a second file.
 - Trash three documents, empty the trash from Settings and from the Trash filter: all three disappear, the storage counts drop, and no "in use" message appears. If a file is genuinely locked the message states how many were removed and how many were not.
 - Folders: from a document tap "Add to folder", type a new name; the Documents tab shows the folder chip with a count; select two documents and move them there; the chip count updates; move one back to "No folder". Trashing the last document in a folder removes the chip.
 - Page editor: pick each preset (Original, Auto, Magic colour, Grayscale, Black & white, Brighten) on a photographed page; the saved page shows the effect and the button names the preset; the "Page saved" alert offers Add another page and Done, and both go where they say.
 - Live scanner: after the first capture the bottom row shows "N pages saved · capture more, or finish" with a Done button.
 
+## Folder tree and PIN
+
+- Folders screen: create Study, then Study › Math and Study › Science; a fifth level is refused with a message; a duplicate name (case-insensitive) is refused. Counts: Study shows the total including sub-folders and "N here".
+- File documents: from a document's folder chip choose Study › Math ("Put here" on a row files without opening it); from a selection, Folder moves all of them; the Documents tab chip "Study · N" narrows to the whole subtree and the card shows "Study › Math".
+- Rename Study to Studies: sub-folders and documents follow. Delete Study › Math: its documents move to Study.
+- Lock Personal with no PIN set: the explanation appears, then the PIN setup asks twice, shows the red no-recovery warning, and Save is disabled until the acknowledgement is ticked. Afterwards Personal's documents vanish from Documents, Home, search and the picker; the Documents header says "N in locked folders"; opening a locked document's link asks for the PIN.
+- Unlock with a wrong PIN five times: the sixth attempt shows a 30 s wait that survives a restart. Unlock correctly, background the app for over a minute, return: locked again. Settings › Lock folders now locks immediately.
+- Forgot your PIN → two confirmations → the locked folders' documents are gone, the folders are unlocked, and Settings shows the PIN as not set.
+
 ## Camera
 
 - First request, denial, permanent denial/settings recovery, unavailable camera, torch unsupported.
 - Rapid capture/save taps, retake, Android hardware back, background/foreground, interruption during saving.
 - Verify files persist after restart and cancelled captures do not accumulate in cache.
-- Live scanner: the preview streams within a few seconds of the permission being granted, and the edge overlay follows a page. If the native view errors or shows nothing for 20 s the standard camera takes over with "Edges are detected after you take the photo"; capture still works there.
+- Live scanner: the preview streams within a few seconds of the permission being granted, and the edge overlay follows a page without jitter when the phone is held still; a brief false edge (a hand passing) does not move it. With Auto on, a steady, sharp page is captured by itself after about a second (longer when the light is poor); the shot refocuses on the page first and is at the camera's full resolution (check the saved page's dimensions). If the native view errors or shows nothing for 20 s the standard camera takes over with "Edges are detected after you take the photo"; capture still works there.
 - Deny with "Don't ask again", open Settings from the prompt, grant, return: the scanner opens without leaving the screen (permission is re-read on foreground).
 
 ## Compression

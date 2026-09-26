@@ -156,6 +156,46 @@ are blocked in app.json and absent from the merged manifest), PDFs to the
 export folder, and Read Text can take or pick a photo and copy the result;
 these compiled and typecheck, and their on-device pass is still pending.
 
+The OCR crash (2026-09-26) was reproduced and traced, and it was not in the
+OCR engine. Emulator, release APK, Receipt preset, a 3000x4000 test page
+imported from the gallery, Create PDF: the process died 3 s after
+"Initialized Tesseract API" with SIGABRT, "Scudo ERROR: invalid chunk state
+when deallocating", in thread DefaultDispatch (expo-sqlite's coroutine
+pool), frames exsqlite3_finalize <- NativeDatabaseBinding::sqlite3_close <-
+SQLiteModule closeAsync. Memory was flat (PSS 250 MB) and the engine worker
+thread was idle in the tombstone: OCR and the PDF had already finished and
+the crash came at the first SQLite write afterwards (storePdf / saveText).
+Reproduced a second time identically. A third run under libc malloc-debug
+(wrap.com.scandoc.scanner with backtrace, guard pages, free tracking and
+fill) died in the same frame with SIGSEGV at a non-canonical address: with
+freed memory poisoned, the stale pointer faulted instead of "working", which
+is the signature of a use-after-free, and no guard overflow was reported, so
+nothing in Tesseract, Leptonica or OpenCV wrote out of bounds. The freed
+object is the per-transaction connection that expo-sqlite 57.0.3's
+withExclusiveTransactionAsync opens and closes on every call; the app used
+it for every atomic write (addPage, saveText, removePage, reorderPages,
+discardDraft, deleteDocumentForever, splitPage, migrations). GC during the
+memory churn of OCR is what exposed it, hence "the app closes while
+extracting text". Fix: src/services/database.ts transaction() runs
+withTransactionAsync on the app's single connection, serialised so
+transactions never nest; every call site moved to it; a source test fails if
+the old API returns. The engine changes from the same day (catch every
+Throwable in the worker, memory-aware OCR size) stay: they turn any future
+native failure into an alert instead of a process death.
+
+Folder tree, PIN lock and steadier auto-capture (2026-09-26). Folder paths
+and tree building are pure functions with 6 tests (tests/folder-paths.test.mjs);
+the folders table (migration v3) seeds from the old flat labels so nothing
+already filed moves. The PIN service uses expo-secure-store, a new native
+module, so this round needs a rebuilt app: a Metro bundle served to the
+previous debug APK stopped at "Cannot find native module ExpoSecureStore",
+which is also why the SQLite fix's first device pass was inconclusive. The
+tracker's median filter and the camera's focus-then-shoot compiled; the
+emulator's virtual camera shows a fixed scene with no document, so the
+detection changes can only be judged on a phone (docs/QA.md lists what to
+look for). The device pass of all of this is recorded below this paragraph
+once the rebuild has run.
+
 R8 (2026-09-25, evening). Release builds are now minified and shrunk with
 keep rules for expo.modules.scandoc, org.opencv, com.googlecode.tesseract
 and com.googlecode.leptonica (neither AAR ships consumer rules). A local

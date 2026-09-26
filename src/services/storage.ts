@@ -3,7 +3,7 @@ import * as Crypto from "expo-crypto";
 import type { LocalDocument } from "../types/document";
 import { cleanName, fileKind, matchesHeader } from "../utils/files.mjs";
 import { expiredTrash } from "./library.mjs";
-import { openDatabase, root, thumbsDir } from "./database";
+import { openDatabase, root, thumbsDir, transaction } from "./database";
 
 export async function listDocuments() {
   return (await openDatabase()).getAllAsync<LocalDocument>(
@@ -116,7 +116,7 @@ export async function deleteDocumentForever(id: string) {
     id,
   );
   if (!row) return false;
-  await db.withExclusiveTransactionAsync(async (tx) => {
+  await transaction(async (tx) => {
     await tx.runAsync("DELETE FROM document_search WHERE documentId = ?", id);
     await tx.runAsync("DELETE FROM document_text WHERE documentId = ?", id);
     await tx.runAsync("DELETE FROM document_folders WHERE documentId = ?", id);

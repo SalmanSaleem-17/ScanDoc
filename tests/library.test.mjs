@@ -67,3 +67,24 @@ test("tree URIs are described as the folder people chose", async () => {
   assert.equal(describeDirectory(null), "");
   assert.equal(describeDirectory("content://x/tree/%E0%A4%A"), "");
 });
+
+test("no code opens a second SQLite connection per transaction", async () => {
+  // expo-sqlite's withExclusiveTransactionAsync opens and closes a native
+  // connection per call; on Android that close crashed the app during OCR
+  // (use-after-free in the per-transaction connection). All atomic writes go
+  // through transaction() in src/services/database.ts on the one connection.
+  const { readdirSync, readFileSync, statSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const offenders = [];
+  const walk = (dir) => {
+    for (const name of readdirSync(dir)) {
+      const p = join(dir, name);
+      if (statSync(p).isDirectory()) walk(p);
+      else if (/\.(ts|tsx|mjs)$/.test(name) && /\.withExclusiveTransactionAsync\s*\(/.test(readFileSync(p, "utf8")))
+        offenders.push(p);
+    }
+  };
+  walk("src");
+  walk("app");
+  assert.deepEqual(offenders, []);
+});

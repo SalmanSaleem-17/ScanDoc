@@ -1,6 +1,7 @@
 import { Directory, File, Paths } from "expo-file-system";
 import * as Crypto from "expo-crypto";
 import { workspaceDb, type DraftPage } from "./workspace";
+import { transaction } from "./database";
 export async function splitPage(page: DraftPage, uris: string[]) {
   if (uris.length !== 2) throw new Error("Expected two pages");
   const db = await workspaceDb();
@@ -14,7 +15,7 @@ export async function splitPage(page: DraftPage, uris: string[]) {
     // rows below point at them, so this is a sequential loop, not a forEach.
     for (let i = 0; i < uris.length; i++)
       await new File(uris[i]).copy(new File(dir, replacements[i].path));
-    await db.withExclusiveTransactionAsync(async (tx) => {
+    await transaction(async (tx) => {
       const current = await tx.getFirstAsync<DraftPage>(
         "SELECT * FROM draft_pages WHERE id=?",
         page.id,

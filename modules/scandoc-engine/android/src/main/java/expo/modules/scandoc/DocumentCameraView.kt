@@ -120,6 +120,9 @@ class DocumentCameraView(context: Context, appContext: AppContext) : ExpoView(co
       next.imageAnalysisResolutionSelector=ResolutionSelector.Builder().setResolutionStrategy(ResolutionStrategy(Size(640,480),ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER_THEN_HIGHER)).build()
       next.imageAnalysisBackpressureStrategy=ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST
       next.imageCaptureMode=ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY
+      // The still image should be the sensor's best, not the preview's size:
+      // OCR and the crop both gain from every pixel.
+      next.imageCaptureResolutionSelector=ResolutionSelector.Builder().setResolutionStrategy(ResolutionStrategy.HIGHEST_AVAILABLE_STRATEGY).build()
       next.imageCaptureFlashMode=flashMode
       next.isTapToFocusEnabled=true;next.isPinchToZoomEnabled=true
       next.setImageAnalysisAnalyzer(executor,object:ImageAnalysis.Analyzer {
@@ -220,8 +223,14 @@ class DocumentCameraView(context: Context, appContext: AppContext) : ExpoView(co
     val sensorHint=if(SystemClock.elapsedRealtime()-latestAt<300)liveSensorCorners?.clone() else null
     val folder=File(context.cacheDir,"ScanDocCaptures").apply{mkdirs()}
     val output=File(folder,"${UUID.randomUUID()}.jpg")
-    try {
-      camera.takePicture(executor,object:ImageCapture.OnImageCapturedCallback(){
+    // Focus and meter on the page itself before the shutter: an automatic
+    // capture is triggered by geometry and stillness, and the lens may still
+    // be set for whatever was in front of it a moment ago. The wait is
+    // bounded so a camera that cannot focus (fixed-focus, or already locked)
+    // never blocks the shot.
+    fun shoot() {
+      try {
+        camera.takePicture(executor,object:ImageCapture.OnImageCapturedCallback(){
         override fun onCaptureSuccess(image:ImageProxy){
           try {
             require(image.format==android.graphics.ImageFormat.JPEG)
@@ -242,8 +251,23 @@ class DocumentCameraView(context: Context, appContext: AppContext) : ExpoView(co
           finally{image.close();capturing=false;if(disposed)executor.shutdown()}
         }
         override fun onError(error:ImageCaptureException){capturing=false;if(disposed)executor.shutdown();output.delete();promise.reject("CAPTURE_FAILED","Could not capture. Try again.",null)}
-      })
-    }catch(_:Exception){capturing=false;output.delete();promise.reject("CAPTURE_FAILED","Could not capture. Try again.",null)}
+        })
+      }catch(_:Exception){capturing=false;output.delete();promise.reject("CAPTURE_FAILED","Could not capture. Try again.",null)}
+    }
+    val quad=latest?.quad
+    if(automatic && quad!=null && width>0 && height>0){
+      try {
+        val cx=(quad.sumOf { it.x }/4*width).toFloat(); val cy=(quad.sumOf { it.y }/4*height).toFloat()
+        val point=preview.meteringPointFactory.createPoint(cx,cy)
+        val action=FocusMeteringAction.Builder(point,FocusMeteringAction.FLAG_AF or FocusMeteringAction.FLAG_AE).setAutoCancelDuration(3,java.util.concurrent.TimeUnit.SECONDS).build()
+        val future=camera.cameraControl?.startFocusAndMetering(action)
+        if(future==null){shoot();return}
+        val fired=java.util.concurrent.atomic.AtomicBoolean(false)
+        fun once(){ if(fired.compareAndSet(false,true)) shoot() }
+        future.addListener({ once() },context.mainExecutor)
+        postDelayed({ once() },450)
+      }catch(_:Exception){shoot()}
+    } else shoot()
   }
 }
 

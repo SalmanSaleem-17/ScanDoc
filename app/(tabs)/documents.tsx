@@ -28,14 +28,9 @@ import { useTheme } from "../../src/theme/provider";
 import { useDocuments } from "../../src/features/documents/provider";
 import { DocumentCard } from "../../src/features/documents/DocumentCard";
 import { useImport } from "../../src/features/documents/useImport";
-import {
-  searchText,
-  folders,
-  folderSummary,
-  putFolder,
-  removeFromFolder,
-  type FolderSummary,
-} from "../../src/services/workspace";
+import { searchText } from "../../src/services/workspace";
+import { assignFolder, folderChildren, type FolderChild } from "../../src/services/folders";
+import { isLockedPath, isWithin } from "../../src/services/folderPaths.mjs";
 import { FolderPicker } from "../../src/features/documents/FolderPicker";
 import {
   deleteDocumentForever,
@@ -55,16 +50,16 @@ const FILTERS = ["All", "PDF", "Scans", "Images", "Trash"] as const;
 
 export default function Documents() {
   const { colors } = useTheme();
-  const { documents, loading, error, refresh } = useDocuments();
+  const { documents, allDocuments, folderOf, lockedPaths, unlocked, hiddenCount, loading, error, refresh } = useDocuments();
   const { importDocuments, progress } = useImport();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All");
   const [sort, setSort] = useState<Sort>("Recent");
   const [matches, setMatches] = useState<Record<string, string>>({});
-  const [folderMap, setFolderMap] = useState<Record<string, string>>({});
-  // Folders are labels on documents; the strip under the filters lists the
-  // ones in use, and choosing one narrows the list to it.
-  const [folderList, setFolderList] = useState<FolderSummary[]>([]);
+  const folderMap = folderOf;
+  // Top-level folders as chips; choosing one narrows the list to everything
+  // inside it (sub-folders included). The full tree lives on /folders.
+  const [folderList, setFolderList] = useState<FolderChild[]>([]);
   const [folder, setFolder] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
   const [indexRevision, setIndexRevision] = useState(0);
@@ -124,30 +119,27 @@ export default function Documents() {
   useFocusEffect(
     useCallback(() => {
       setIndexRevision((value) => value + 1);
-      void folders()
-        .then((rows) =>
-          setFolderMap(
-            Object.fromEntries(rows.map((row) => [row.documentId, row.folder])),
-          ),
-        )
-        .catch(() => setIndexError("Folder search is unavailable."));
-      void folderSummary().then(setFolderList).catch(() => {});
-    }, []),
+      void refresh();
+    }, [refresh]),
   );
+  useEffect(() => {
+    const trashed = new Set(allDocuments.filter((d) => d.trashedAt).map((d) => d.id));
+    void folderChildren("", trashed)
+      .then((rows) => {
+        setFolderList(rows);
+        if (folder && !rows.some((f) => f.path === folder)) setFolder(null);
+      })
+      .catch(() => {});
+  }, [allDocuments, folderOf, folder]);
   async function reloadFolders() {
-    const [rows, summary] = await Promise.all([folders(), folderSummary()]);
-    setFolderMap(Object.fromEntries(rows.map((row) => [row.documentId, row.folder])));
-    setFolderList(summary);
-    if (folder && !summary.some((f) => f.folder === folder)) setFolder(null);
+    await refresh();
   }
   async function moveSelection(target: string | null) {
     setPicking(false);
     const ids = [...selected];
     if (!ids.length) return;
     setWorking(`Moving ${ids.length} ${ids.length === 1 ? "document" : "documents"}…`);
-    const failed = await forEachDocument(ids, (id) =>
-      target ? putFolder(id, target) : removeFromFolder(id),
-    );
+    const failed = await forEachDocument(ids, (id) => assignFolder(id, target));
     setWorking("");
     setSelected([]);
     await reloadFolders();
@@ -188,7 +180,7 @@ export default function Documents() {
             (filter !== "PDF" || d.kind === "pdf") &&
             (filter !== "Images" || d.kind === "image") &&
             (filter !== "Scans" || d.source === "camera") &&
-            (!folder || folderMap[d.id] === folder) &&
+            (!folder || isWithin(folderMap[d.id] ?? "", folder)) &&
             (`${d.name} ${d.kind} ${folderMap[d.id] || ""}`
               .toLowerCase()
               .includes(query.toLowerCase()) ||
@@ -348,12 +340,20 @@ export default function Documents() {
         <>
           <Header
             title="Documents"
+            subtitle={hiddenCount > 0 ? `${hiddenCount} in locked folders` : undefined}
             action={
-              <IconButton
-                name="add-outline"
-                label="Import documents"
-                onPress={importDocuments}
-              />
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                <IconButton
+                  name="folder-outline"
+                  label="Folders"
+                  onPress={() => router.push("/folders")}
+                />
+                <IconButton
+                  name="add-outline"
+                  label="Import documents"
+                  onPress={importDocuments}
+                />
+              </View>
             }
           />
           <SearchBar
@@ -394,21 +394,22 @@ export default function Documents() {
           </Pressable>
         ))}
       </ScrollView>
-      {!inTrash && folderList.length > 0 && (
+      {!inTrash && (folderList.length > 0 || hiddenCount > 0) && (
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={{ gap: 8, paddingBottom: 12 }}
           style={{ flexGrow: 0 }}
         >
-          {[{ folder: "", count: 0 }, ...folderList].map((item) => {
-            const active = (folder ?? "") === item.folder;
+          {[{ path: "", name: "", direct: 0, total: 0 }, ...folderList].map((item) => {
+            const active = (folder ?? "") === item.path;
+            const locked = !!item.path && isLockedPath(item.path, lockedPaths) && !unlocked;
             return (
               <Pressable
-                key={item.folder || "__all"}
+                key={item.path || "__all"}
                 accessibilityRole="button"
                 accessibilityState={{ selected: active }}
-                onPress={() => setFolder(item.folder || null)}
+                onPress={() => (locked ? router.push({ pathname: "/folders", params: { path: item.path } }) : setFolder(item.path || null))}
                 style={{
                   flexDirection: "row",
                   alignItems: "center",
@@ -422,12 +423,12 @@ export default function Documents() {
                 }}
               >
                 <Icon
-                  name={item.folder ? "folder-outline" : "albums-outline"}
+                  name={!item.path ? "albums-outline" : locked ? "lock-closed-outline" : "folder-outline"}
                   size={15}
                   color={active ? colors.blue : colors.secondary}
                 />
                 <Label style={{ fontSize: 12, color: active ? colors.blue : colors.text }}>
-                  {item.folder ? `${item.folder} · ${item.count}` : "All folders"}
+                  {item.path ? (locked ? item.name : `${item.name} · ${item.total}`) : "All folders"}
                 </Label>
               </Pressable>
             );
@@ -513,10 +514,10 @@ export default function Documents() {
                 onToggle={() => toggle(item.id)}
                 onLongPress={() => beginSelection(item.id)}
               />
-              {!!folderMap[item.id] && !folder && (
+              {!!folderMap[item.id] && (
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: -4, marginBottom: 10, marginLeft: 4 }}>
                   <Icon name="folder-outline" size={13} color={colors.secondary} />
-                  <Label style={{ color: colors.secondary, fontSize: 12 }}>{folderMap[item.id]}</Label>
+                  <Label style={{ color: colors.secondary, fontSize: 12 }}>{folderMap[item.id].split("/").join(" › ")}</Label>
                 </View>
               )}
               {!!matches[item.id] && (
