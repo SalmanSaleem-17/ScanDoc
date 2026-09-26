@@ -60,11 +60,18 @@ export default function Settings() {
           style: "destructive",
           onPress: () =>
             void emptyTrash()
-              .then(() => refresh())
+              .then(async (result) => {
+                await refresh();
+                if (result.failed)
+                  Alert.alert(
+                    "Trash partly emptied",
+                    `${result.removed} removed; ${result.failed} could not be deleted. Restart the app and try again.`,
+                  );
+              })
               .catch(() =>
                 Alert.alert(
                   "Could not empty the trash",
-                  "Some files may still be in use. Try again in a moment.",
+                  "The library could not be opened. Restart the app and try again.",
                 ),
               ),
         },

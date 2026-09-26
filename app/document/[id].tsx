@@ -39,6 +39,8 @@ import { useTheme } from "../../src/theme/provider";
 import { formatBytes } from "../../src/utils/files.mjs";
 import { daysUntilPurge } from "../../src/services/library.mjs";
 import type { LocalDocument } from "../../src/types/document";
+import { FolderPicker } from "../../src/features/documents/FolderPicker";
+import { folders, putFolder, removeFromFolder } from "../../src/services/workspace";
 
 // A document is shown the way people think of a scan: one file name, and its
 // pages laid out in a numbered grid underneath. Tapping a page opens it full
@@ -72,6 +74,19 @@ function DocumentView({ document }: { document: LocalDocument }) {
       ? Math.max(1, document.pageCount ?? 1)
       : 1;
   const [viewing, setViewing] = useState<number | null>(null);
+  const [folder, setFolder] = useState<string | null>(null);
+  const [pickingFolder, setPickingFolder] = useState(false);
+  useEffect(() => {
+    let live = true;
+    void folders()
+      .then((rows) => {
+        if (live) setFolder(rows.find((r) => r.documentId === document.id)?.folder ?? null);
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [document.id]);
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
@@ -114,6 +129,33 @@ function DocumentView({ document }: { document: LocalDocument }) {
           />
         }
       />
+      {!document.trashedAt && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={folder ? `Folder ${folder}, change` : "Add to a folder"}
+          onPress={() => setPickingFolder(true)}
+          style={({ pressed }) => ({
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 8,
+            alignSelf: "flex-start",
+            paddingHorizontal: 12,
+            minHeight: 36,
+            borderRadius: 18,
+            borderWidth: 1,
+            borderColor: folder ? colors.blue : colors.border,
+            backgroundColor: folder ? colors.tint : colors.surface,
+            marginBottom: 16,
+            opacity: pressed ? 0.7 : 1,
+          })}
+        >
+          <Icon name={folder ? "folder" : "folder-outline"} size={16} color={folder ? colors.blue : colors.secondary} />
+          <Label style={{ fontSize: 13, color: folder ? colors.blue : colors.secondary }}>
+            {folder ?? "Add to folder"}
+          </Label>
+          <Icon name="chevron-down" size={14} color={colors.secondary} />
+        </Pressable>
+      )}
       {editing && (
         <Card style={{ gap: 12, marginBottom: 16 }}>
           <TextInput
@@ -308,6 +350,19 @@ function DocumentView({ document }: { document: LocalDocument }) {
         </View>
       )}
     </Screen>
+      <FolderPicker
+        visible={pickingFolder}
+        current={folder}
+        onSelect={(target) => {
+          setPickingFolder(false);
+          void perform(async () => {
+            if (target) await putFolder(document.id, target);
+            else await removeFromFolder(document.id);
+            setFolder(target);
+          });
+        }}
+        onClose={() => setPickingFolder(false)}
+      />
       {viewing !== null && (
         <PageViewer
           document={document}

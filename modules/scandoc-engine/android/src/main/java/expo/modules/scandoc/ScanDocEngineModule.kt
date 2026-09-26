@@ -66,8 +66,17 @@ class ScanDocEngineModule : Module() {
                 tess.setVariable("user_defined_dpi", args.optInt("dpi", 300).coerceIn(70, 2400).toString())
                 val clean = args.optBoolean("preprocess", true)
                 val uri = args.getString("uri")
+                // Recognition at full analysis size needs several hundred MB
+                // between the page copies and Tesseract itself. When the
+                // device is already short of memory the smaller edge is used
+                // from the start rather than after an OOM, because the
+                // low-memory killer does not wait for one.
+                val memory = android.app.ActivityManager.MemoryInfo().also {
+                  (context.getSystemService(android.content.Context.ACTIVITY_SERVICE) as android.app.ActivityManager).getMemoryInfo(it)
+                }
+                val constrained = memory.lowMemory || memory.availMem < 700L * 1024 * 1024 || Runtime.getRuntime().maxMemory() < 256L * 1024 * 1024
                 val bitmap = try {
-                  images.load(uri, if (clean) Ocr.ANALYSIS_EDGE else 2400)
+                  images.load(uri, if (!clean) 2400 else if (constrained) Ocr.FALLBACK_EDGE else Ocr.ANALYSIS_EDGE)
                 } catch (error: OutOfMemoryError) {
                   images.load(uri, Ocr.FALLBACK_EDGE)
                 }
@@ -157,6 +166,15 @@ class ScanDocEngineModule : Module() {
         } catch (error: OutOfMemoryError) {
           job?.deleteRecursively()
           promise.reject("MEMORY_LIMIT", "This file is too large for available memory. Try a smaller image.", null)
+        } catch (error: Throwable) {
+          // Errors other than OOM (a native library that failed to load, a
+          // class missing after minification, a stack overflow) used to
+          // escape this worker thread and take the whole process down. They
+          // are reported to JavaScript like any other failure, and logged
+          // with their type so a device log names the cause.
+          android.util.Log.e("ScanDocEngine", "$operation failed with ${error.javaClass.name}", error)
+          job?.deleteRecursively()
+          promise.reject("ENGINE_FAILED", "The processing engine hit an internal error (${error.javaClass.simpleName}). Try again; if it repeats, reinstall the app.", null)
         } finally { cancelled.remove(id) }
       }
     }

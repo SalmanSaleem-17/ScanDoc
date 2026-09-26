@@ -269,13 +269,21 @@ export function useTask() {
         if (mounted.current) setProgress(message);
       });
       succeeded = true;
-    } catch {
+    } catch (error) {
+      // The engine rejects with a coded, user-safe message (memory limit,
+      // internal error, unsupported file); those are shown as they are,
+      // because "could not complete" hides the one fact that helps.
+      const coded =
+        error instanceof Error && "code" in error && typeof error.message === "string" && error.message.length < 240
+          ? error.message
+          : null;
       if (mounted.current)
         Alert.alert(
           controller.signal.aborted ? "Cancelled" : "Could not complete",
           controller.signal.aborted
             ? "Your saved files and original documents are safe."
-            : "Check the selected file, available storage, and entered values, then try again. Password-protected PDFs must be unlocked before importing.",
+            : coded ??
+              "Check the selected file, available storage, and entered values, then try again. Password-protected PDFs must be unlocked before importing.",
         );
     } finally {
       active.current = null;

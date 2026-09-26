@@ -62,6 +62,79 @@ class Images(private val context: Context, private val job: File) {
     canvas.drawText(text, rect.left + padX, rect.bottom - padY - paint.descent() + size * 0.1f, paint)
     return bitmap
   }
+  /**
+   * Enhancement presets, named the way people pick them:
+   *  auto   – a little more contrast, the previous "enhance";
+   *  light  – lifts a dark or shadowed photo;
+   *  gray   – neutral greyscale with mild contrast;
+   *  color  – "magic colour": local contrast (CLAHE on L in Lab) so text
+   *           darkens and paper whitens while colours stay, then a touch of
+   *           saturation;
+   *  bw     – clean black-and-white scan via an adaptive threshold, which
+   *           handles uneven lighting that a global threshold would smear.
+   * Unknown names return the input untouched.
+   */
+  fun applyFilter(input: Bitmap, filter: String): Bitmap {
+    fun withMatrix(values: FloatArray): Bitmap {
+      val out = Bitmap.createBitmap(input.width, input.height, Bitmap.Config.ARGB_8888)
+      Canvas(out).drawBitmap(input, 0f, 0f, Paint().apply { colorFilter = ColorMatrixColorFilter(ColorMatrix(values)) })
+      return out
+    }
+    return when (filter) {
+      "auto" -> withMatrix(floatArrayOf(1.18f,0f,0f,0f,-12f, 0f,1.18f,0f,0f,-12f, 0f,0f,1.18f,0f,-12f, 0f,0f,0f,1f,0f))
+      "light" -> withMatrix(floatArrayOf(1.08f,0f,0f,0f,22f, 0f,1.08f,0f,0f,22f, 0f,0f,1.08f,0f,22f, 0f,0f,0f,1f,0f))
+      "gray" -> {
+        // Luma weights, then contrast 1.12 around mid grey.
+        val c = 1.12f; val o = 128f * (1 - c)
+        val r = 0.299f * c; val g = 0.587f * c; val b = 0.114f * c
+        withMatrix(floatArrayOf(r,g,b,0f,o, r,g,b,0f,o, r,g,b,0f,o, 0f,0f,0f,1f,0f))
+      }
+      "color" -> {
+        check(org.opencv.android.OpenCVLoader.initLocal())
+        val rgba = org.opencv.core.Mat(); org.opencv.android.Utils.bitmapToMat(input, rgba)
+        val lab = org.opencv.core.Mat()
+        org.opencv.imgproc.Imgproc.cvtColor(rgba, lab, org.opencv.imgproc.Imgproc.COLOR_RGBA2RGB)
+        org.opencv.imgproc.Imgproc.cvtColor(lab, lab, org.opencv.imgproc.Imgproc.COLOR_RGB2Lab)
+        val channels = ArrayList<org.opencv.core.Mat>(); org.opencv.core.Core.split(lab, channels)
+        val clahe = org.opencv.imgproc.Imgproc.createCLAHE(2.4, org.opencv.core.Size(8.0, 8.0))
+        clahe.apply(channels[0], channels[0])
+        org.opencv.core.Core.merge(channels, lab)
+        org.opencv.imgproc.Imgproc.cvtColor(lab, lab, org.opencv.imgproc.Imgproc.COLOR_Lab2RGB)
+        org.opencv.imgproc.Imgproc.cvtColor(lab, rgba, org.opencv.imgproc.Imgproc.COLOR_RGB2RGBA)
+        val mid = Bitmap.createBitmap(input.width, input.height, Bitmap.Config.ARGB_8888)
+        org.opencv.android.Utils.matToBitmap(rgba, mid)
+        channels.forEach { it.release() }; lab.release(); rgba.release()
+        // Saturation 1.25 with contrast 1.08.
+        val s = 1.25f; val c = 1.08f; val o = 128f * (1 - c)
+        val lr = 0.299f; val lg = 0.587f; val lb = 0.114f
+        val m = floatArrayOf(
+          c*((1-s)*lr+s), c*((1-s)*lg),   c*((1-s)*lb),   0f, o,
+          c*((1-s)*lr),   c*((1-s)*lg+s), c*((1-s)*lb),   0f, o,
+          c*((1-s)*lr),   c*((1-s)*lg),   c*((1-s)*lb+s), 0f, o,
+          0f, 0f, 0f, 1f, 0f)
+        val out = Bitmap.createBitmap(mid.width, mid.height, Bitmap.Config.ARGB_8888)
+        Canvas(out).drawBitmap(mid, 0f, 0f, Paint().apply { colorFilter = ColorMatrixColorFilter(ColorMatrix(m)) })
+        mid.recycle()
+        out
+      }
+      "bw" -> {
+        check(org.opencv.android.OpenCVLoader.initLocal())
+        val rgba = org.opencv.core.Mat(); org.opencv.android.Utils.bitmapToMat(input, rgba)
+        val gray = org.opencv.core.Mat()
+        org.opencv.imgproc.Imgproc.cvtColor(rgba, gray, org.opencv.imgproc.Imgproc.COLOR_RGBA2GRAY)
+        // Block size scales with the page so the threshold follows lighting,
+        // not letter shapes; the offset keeps thin strokes from filling in.
+        val block = (maxOf(input.width, input.height) / 40).coerceAtLeast(15) or 1
+        org.opencv.imgproc.Imgproc.adaptiveThreshold(gray, gray, 255.0, org.opencv.imgproc.Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, org.opencv.imgproc.Imgproc.THRESH_BINARY, block, 12.0)
+        org.opencv.imgproc.Imgproc.cvtColor(gray, rgba, org.opencv.imgproc.Imgproc.COLOR_GRAY2RGBA)
+        val out = Bitmap.createBitmap(input.width, input.height, Bitmap.Config.ARGB_8888)
+        org.opencv.android.Utils.matToBitmap(rgba, out)
+        gray.release(); rgba.release()
+        out
+      }
+      else -> input
+    }
+  }
   fun save(bitmap: Bitmap): String {
     val output = File(job, "${UUID.randomUUID()}.jpg")
     output.outputStream().use { check(bitmap.compress(Bitmap.CompressFormat.JPEG, 95, it)) }
@@ -119,11 +192,12 @@ class Images(private val context: Context, private val job: File) {
         bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         Canvas(bitmap).apply { drawColor(Color.WHITE); drawBitmap(source, transform, Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)) }
       } else bitmap = source.copy(Bitmap.Config.ARGB_8888, true)
-      if (args.optBoolean("enhance", false)) {
-        val enhanced = Bitmap.createBitmap(bitmap.width, bitmap.height, Bitmap.Config.ARGB_8888)
-        val matrix = ColorMatrix(floatArrayOf(1.18f,0f,0f,0f,-12f, 0f,1.18f,0f,0f,-12f, 0f,0f,1.18f,0f,-12f, 0f,0f,0f,1f,0f))
-        Canvas(enhanced).drawBitmap(bitmap, 0f, 0f, Paint().apply { colorFilter = ColorMatrixColorFilter(matrix) })
-        bitmap.recycle(); bitmap = enhanced
+      // "enhance" is the older boolean form of filter=auto, kept for callers
+      // that have not moved to named presets.
+      val filter = args.optString("filter", if (args.optBoolean("enhance", false)) "auto" else "none")
+      if (filter != "none") {
+        val filtered = applyFilter(bitmap, filter)
+        if (filtered !== bitmap) { bitmap.recycle(); bitmap = filtered }
       }
       val regions = args.optJSONArray("redactions") ?: JSONArray()
       val canvas = Canvas(bitmap); val paint = Paint().apply { color = Color.BLACK; isAntiAlias = false }

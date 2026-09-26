@@ -28,7 +28,15 @@ import { useTheme } from "../../src/theme/provider";
 import { useDocuments } from "../../src/features/documents/provider";
 import { DocumentCard } from "../../src/features/documents/DocumentCard";
 import { useImport } from "../../src/features/documents/useImport";
-import { searchText, folders } from "../../src/services/workspace";
+import {
+  searchText,
+  folders,
+  folderSummary,
+  putFolder,
+  removeFromFolder,
+  type FolderSummary,
+} from "../../src/services/workspace";
+import { FolderPicker } from "../../src/features/documents/FolderPicker";
 import {
   deleteDocumentForever,
   emptyTrash,
@@ -54,6 +62,11 @@ export default function Documents() {
   const [sort, setSort] = useState<Sort>("Recent");
   const [matches, setMatches] = useState<Record<string, string>>({});
   const [folderMap, setFolderMap] = useState<Record<string, string>>({});
+  // Folders are labels on documents; the strip under the filters lists the
+  // ones in use, and choosing one narrows the list to it.
+  const [folderList, setFolderList] = useState<FolderSummary[]>([]);
+  const [folder, setFolder] = useState<string | null>(null);
+  const [picking, setPicking] = useState(false);
   const [indexRevision, setIndexRevision] = useState(0);
   const [indexError, setIndexError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
@@ -118,8 +131,29 @@ export default function Documents() {
           ),
         )
         .catch(() => setIndexError("Folder search is unavailable."));
+      void folderSummary().then(setFolderList).catch(() => {});
     }, []),
   );
+  async function reloadFolders() {
+    const [rows, summary] = await Promise.all([folders(), folderSummary()]);
+    setFolderMap(Object.fromEntries(rows.map((row) => [row.documentId, row.folder])));
+    setFolderList(summary);
+    if (folder && !summary.some((f) => f.folder === folder)) setFolder(null);
+  }
+  async function moveSelection(target: string | null) {
+    setPicking(false);
+    const ids = [...selected];
+    if (!ids.length) return;
+    setWorking(`Moving ${ids.length} ${ids.length === 1 ? "document" : "documents"}…`);
+    const failed = await forEachDocument(ids, (id) =>
+      target ? putFolder(id, target) : removeFromFolder(id),
+    );
+    setWorking("");
+    setSelected([]);
+    await reloadFolders();
+    if (failed.length)
+      Alert.alert("Some documents were skipped", `${failed.length} of ${ids.length} could not be moved.`);
+  }
   useEffect(() => {
     let active = true;
     setMatches({});
@@ -154,6 +188,7 @@ export default function Documents() {
             (filter !== "PDF" || d.kind === "pdf") &&
             (filter !== "Images" || d.kind === "image") &&
             (filter !== "Scans" || d.source === "camera") &&
+            (!folder || folderMap[d.id] === folder) &&
             (`${d.name} ${d.kind} ${folderMap[d.id] || ""}`
               .toLowerCase()
               .includes(query.toLowerCase()) ||
@@ -166,7 +201,7 @@ export default function Documents() {
               ? b.size - a.size
               : b.updatedAt - a.updatedAt,
         ),
-    [documents, query, filter, inTrash, sort, matches, folderMap],
+    [documents, query, filter, inTrash, sort, matches, folderMap, folder],
   );
 
   function toggle(id: string) {
@@ -266,11 +301,18 @@ export default function Documents() {
           style: "destructive",
           onPress: () =>
             void emptyTrash()
-              .then(() => refresh())
+              .then(async (result) => {
+                await refresh();
+                if (result.failed)
+                  Alert.alert(
+                    "Trash partly emptied",
+                    `${result.removed} removed; ${result.failed} could not be deleted. Restart the app and try again.`,
+                  );
+              })
               .catch(() =>
                 Alert.alert(
                   "Could not empty the trash",
-                  "Some files may still be in use. Try again in a moment.",
+                  "The library could not be opened. Restart the app and try again.",
                 ),
               ),
         },
@@ -352,6 +394,46 @@ export default function Documents() {
           </Pressable>
         ))}
       </ScrollView>
+      {!inTrash && folderList.length > 0 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: 8, paddingBottom: 12 }}
+          style={{ flexGrow: 0 }}
+        >
+          {[{ folder: "", count: 0 }, ...folderList].map((item) => {
+            const active = (folder ?? "") === item.folder;
+            return (
+              <Pressable
+                key={item.folder || "__all"}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                onPress={() => setFolder(item.folder || null)}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 6,
+                  paddingHorizontal: 12,
+                  minHeight: 36,
+                  borderRadius: 18,
+                  borderWidth: 1,
+                  borderColor: active ? colors.blue : colors.border,
+                  backgroundColor: active ? colors.tint : colors.surface,
+                }}
+              >
+                <Icon
+                  name={item.folder ? "folder-outline" : "albums-outline"}
+                  size={15}
+                  color={active ? colors.blue : colors.secondary}
+                />
+                <Label style={{ fontSize: 12, color: active ? colors.blue : colors.text }}>
+                  {item.folder ? `${item.folder} · ${item.count}` : "All folders"}
+                </Label>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      )}
       <View
         style={{
           flexDirection: "row",
@@ -361,7 +443,7 @@ export default function Documents() {
         }}
       >
         <Label style={{ fontSize: 13, color: colors.secondary }}>
-          {`${visible.length} ${visible.length === 1 ? "file" : "files"}${indexError ? ` · ${indexError}` : ""}`}
+          {`${visible.length} ${visible.length === 1 ? "file" : "files"}${folder ? ` in ${folder}` : ""}${indexError ? ` · ${indexError}` : ""}`}
         </Label>
         <Pressable
           accessibilityRole="button"
@@ -431,16 +513,11 @@ export default function Documents() {
                 onToggle={() => toggle(item.id)}
                 onLongPress={() => beginSelection(item.id)}
               />
-              {!!folderMap[item.id] && (
-                <Label
-                  style={{
-                    color: colors.secondary,
-                    fontSize: 12,
-                    marginBottom: 8,
-                  }}
-                >
-                  Folder: {folderMap[item.id]}
-                </Label>
+              {!!folderMap[item.id] && !folder && (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: -4, marginBottom: 10, marginLeft: 4 }}>
+                  <Icon name="folder-outline" size={13} color={colors.secondary} />
+                  <Label style={{ color: colors.secondary, fontSize: 12 }}>{folderMap[item.id]}</Label>
+                </View>
               )}
               {!!matches[item.id] && (
                 <Label
@@ -461,7 +538,9 @@ export default function Documents() {
                   ? "No matching documents"
                   : inTrash
                     ? "Your trash is empty"
-                    : "No documents yet"
+                    : folder
+                      ? `Nothing in ${folder}`
+                      : "No documents yet"
               }
               description={
                 query
@@ -523,6 +602,12 @@ export default function Documents() {
                 }}
               />
               <IconAction
+                name="folder-outline"
+                title="Folder"
+                disabled={!!working}
+                onPress={() => setPicking(true)}
+              />
+              <IconAction
                 name="download-outline"
                 title="Save"
                 disabled={!!working}
@@ -546,6 +631,13 @@ export default function Documents() {
           )}
         </Card>
       )}
+      <FolderPicker
+        visible={picking}
+        count={selected.length}
+        current={selected.length === 1 ? folderMap[selected[0]] ?? null : null}
+        onSelect={(target) => void moveSelection(target)}
+        onClose={() => setPicking(false)}
+      />
     </Screen>
   );
 }

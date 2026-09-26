@@ -48,6 +48,9 @@ Install/open the ScanDoc development app, rather than Expo Go. Native dependency
 - Private filesystem storage, SQLite metadata, import, search, sorting (remembered), rename, share/export and recoverable trash.
 - Save routes by kind: images go to the device gallery (one-time photos permission), PDFs to a folder chosen once through the system folder picker and remembered in Settings.
 - Read Text takes a photo or picks one from the gallery, reads it at once, and offers Copy, Share and Export TXT.
+- Folders: a document carries one folder label (Receipts and Study are assigned by their presets). The Documents tab shows a strip of folders in use with counts and filters by one; the document screen has a folder chip; a selection can be moved to a folder or a new one typed on the spot. Folders exist exactly while a document is in them, so there is nothing to tidy.
+- Finishing a scan turns the draft into the document (no leftover draft, no second copy on a second tap). After a page is saved the editor offers "Add another page" or "Done", and the live scanner shows a Done button as soon as one page is captured.
+- Enhancement presets in the page editor: Original, Auto, Magic colour (local contrast on the L channel, colours kept), Grayscale, Black & white (adaptive threshold) and Brighten, applied by the engine at full resolution.
 - Long-press a document to select several: merge them into one PDF in the order selected, move them to Trash, or restore / delete forever from the Trash filter. The Android back gesture cancels a selection.
 - The document screen shows a first-page render for PDFs (cached at two sizes) with Share, Rename, Tools and Trash as one action row.
 - Scanning falls back from the native live-detection camera to the standard camera if the native view fails or never starts streaming, so capture works on every device.

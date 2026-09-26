@@ -13,6 +13,15 @@ Status: four native engine tests pass on an Android 14 emulator; TypeScript, ele
 - Search, sort, rename with invalid characters; trash and restore; exported content matches saved file.
 - Open an imported PDF using Share to a reader; unknown page counts must not be fabricated.
 
+## Regressions from the first phone test (2026-09-25)
+
+- OCR must never close the app: on a large photo (12 MP) run Read Text with and without "Clean up the page first"; the result appears or an error alert names the problem. Watch `adb logcat -s ScanDocEngine` for "failed with" lines. On a low-memory device the engine reads at 1800 px instead of 3000 px.
+- Create PDF from a draft opens the new document and the draft is gone from Home and the workspace; renaming the document does not produce a second file.
+- Trash three documents, empty the trash from Settings and from the Trash filter: all three disappear, the storage counts drop, and no "in use" message appears. If a file is genuinely locked the message states how many were removed and how many were not.
+- Folders: from a document tap "Add to folder", type a new name; the Documents tab shows the folder chip with a count; select two documents and move them there; the chip count updates; move one back to "No folder". Trashing the last document in a folder removes the chip.
+- Page editor: pick each preset (Original, Auto, Magic colour, Grayscale, Black & white, Brighten) on a photographed page; the saved page shows the effect and the button names the preset; the "Page saved" alert offers Add another page and Done, and both go where they say.
+- Live scanner: after the first capture the bottom row shows "N pages saved · capture more, or finish" with a Done button.
+
 ## Camera
 
 - First request, denial, permanent denial/settings recovery, unavailable camera, torch unsupported.

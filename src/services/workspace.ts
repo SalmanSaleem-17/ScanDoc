@@ -297,3 +297,24 @@ export async function storePdf(uri: string, name: string, count: number) {
   ).runAsync("UPDATE documents SET pageCount=? WHERE id=?", count, doc.id);
   return doc;
 }
+// Folders are a label per document (document_folders), so a folder exists
+// exactly while a document is in it; that keeps them free of housekeeping.
+export type FolderSummary = { folder: string; count: number };
+export async function folderSummary(): Promise<FolderSummary[]> {
+  return (await workspaceDb()).getAllAsync<FolderSummary>(
+    `SELECT f.folder AS folder, COUNT(*) AS count
+       FROM document_folders f JOIN documents d ON d.id = f.documentId
+      WHERE d.trashedAt IS NULL
+      GROUP BY f.folder ORDER BY lower(f.folder)`,
+  );
+}
+export async function removeFromFolder(id: string) {
+  await (await workspaceDb()).runAsync(
+    "DELETE FROM document_folders WHERE documentId=?",
+    id,
+  );
+}
+/** Trims and bounds a folder name; empty means "no folder". */
+export function cleanFolderName(name: string) {
+  return name.replace(/\s+/g, " ").trim().slice(0, 40);
+}

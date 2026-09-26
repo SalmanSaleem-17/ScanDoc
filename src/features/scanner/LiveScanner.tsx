@@ -108,7 +108,7 @@ export default function LiveScanner({ draftId, appendTo, onUnavailable }: { draf
         corners = result.corners ?? photo.corners;
         result.clean();
         if (auto && corners) {
-          const corrected = await runEngine("edit", { uri: pageUri(page), corners, enhance: true });
+          const corrected = await runEngine("edit", { uri: pageUri(page), corners, filter: "auto" });
           try { await replacePage(page, corrected.uri!); } finally { corrected.clean(); }
         }
       } catch { /* The original is already durable. A failed refinement never loses the page. */ }
@@ -187,10 +187,17 @@ export default function LiveScanner({ draftId, appendTo, onUnavailable }: { draf
           <Pressable accessibilityRole="switch" accessibilityState={{ checked: automatic }} accessibilityLabel="Automatic capture" onPress={() => setAutomatic(v => !v)} style={styles.side}><Icon name={automatic ? "sparkles" : "hand-left-outline"} color={automatic ? "#17D7FF" : "white"} /><Label style={styles.small}>{automatic ? "Auto" : "Manual"}</Label></Pressable>
         </View>
         <View accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 100, now: Math.round((detection?.progress ?? 0) * 100) }} style={styles.progress}><View style={{ height: 3, width: `${automatic ? (detection?.progress ?? 0) * 100 : 0}%`, backgroundColor: "#17D7FF" }} /></View>
-        <Pressable accessibilityRole="button" accessibilityLabel={`Review ${count} pages`} disabled={busy} onPress={review} style={styles.review}>
-          {!!thumbnail && <Image source={{ uri: thumbnail }} resizeMethod="resize" resizeMode="cover" style={{ width: 28, height: 36, borderRadius: 4 }} />}
-          <Label style={styles.small}>{count ? `${count} ${count === 1 ? "page" : "pages"} · Review & save PDF` : "Pages are saved on your device"}</Label><Icon name="chevron-forward" color="#A4B2C7" size={16} />
-        </Pressable>
+        {count > 0 ? (
+          <View style={styles.review}>
+            {!!thumbnail && <Image source={{ uri: thumbnail }} resizeMethod="resize" resizeMode="cover" style={{ width: 30, height: 38, borderRadius: 4 }} />}
+            <Label style={[styles.small, { flex: 1 }]}>{`${count} ${count === 1 ? "page" : "pages"} saved · capture more, or finish`}</Label>
+            <Pressable accessibilityRole="button" accessibilityLabel={`Done, review ${count} pages`} disabled={busy} onPress={review} style={styles.done}>
+              <Icon name="checkmark" color="#07111F" size={18} /><Label style={{ color: "#07111F", fontWeight: "700", fontSize: 13 }}>Done</Label>
+            </Pressable>
+          </View>
+        ) : (
+          <View style={styles.review}><Label style={styles.small}>Pages are saved on your device as you capture them.</Label></View>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -204,5 +211,6 @@ const styles = StyleSheet.create({
   captureRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-around" }, side: { minWidth: 70, minHeight: 64, alignItems: "center", justifyContent: "center", gap: 4 },
   shutter: { width: 76, height: 76, borderWidth: 3, borderColor: "#17D7FF", borderRadius: 38, padding: 5 }, shutterInner: { flex: 1, backgroundColor: "white", borderRadius: 32 },
   progress: { height: 3, backgroundColor: "#26364C", marginTop: 14, borderRadius: 2, overflow: "hidden" },
-  review: { minHeight: 52, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10 },
+  review: { minHeight: 56, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10 },
+  done: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "#17D7FF", borderRadius: 20, paddingHorizontal: 16, minHeight: 40 },
 });

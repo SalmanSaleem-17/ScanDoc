@@ -176,15 +176,19 @@ export default function DraftScreen() {
           document.id,
           draft.preset === "receipt" ? "Receipts" : "Study",
         );
+      // The draft becomes the document: keeping it around meant a second
+      // "Create PDF" (after a rename, say) produced a duplicate file, and the
+      // "Resume unfinished scan" row kept offering pages that were already
+      // saved. Pages stay editable through the document's own Add flow.
+      await discardDraft(id);
       await refresh();
       setResult(document.id);
       if (output.targetMet === false)
         Alert.alert(
           "Saved above target",
-          "The smallest attempted output still exceeds your target. Review readability before sharing. Your draft is preserved.",
+          "The smallest attempted output still exceeds your target. Review readability before sharing.",
         );
-      else
-        Alert.alert("PDF saved", "Open it below, or keep editing this draft.");
+      router.replace({ pathname: "/document/[id]", params: { id: document.id } });
     } finally {
       output.clean();
     }

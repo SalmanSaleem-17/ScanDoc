@@ -207,15 +207,28 @@ export async function forEachDocument(
   }
   return failed;
 }
-/** Permanently deletes everything in the trash. Returns how many were removed. */
+/**
+ * Permanently deletes everything in the trash, one document at a time so a
+ * single failure never leaves the rest behind. Returns what happened; the
+ * caller decides how to word it.
+ */
 export async function emptyTrash() {
   const rows = await (
     await openDatabase()
   ).getAllAsync<{ id: string }>(
     "SELECT id FROM documents WHERE trashedAt IS NOT NULL",
   );
-  for (const row of rows) await deleteDocumentForever(row.id);
-  return rows.length;
+  let removed = 0;
+  let failed = 0;
+  for (const row of rows) {
+    try {
+      await deleteDocumentForever(row.id);
+      removed++;
+    } catch {
+      failed++;
+    }
+  }
+  return { removed, failed, total: rows.length };
 }
 /**
  * Applies the trash retention policy. Called once per launch; the policy

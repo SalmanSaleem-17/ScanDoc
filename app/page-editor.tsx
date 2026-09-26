@@ -40,6 +40,64 @@ import { validCorners } from "../src/features/workflows/logic.mjs";
 type Box = [number, number, number, number];
 // One nudge of the fine-adjust controls, as a fraction of the image.
 const STEP = 0.004;
+// Enhancement presets, applied by the engine (Images.applyFilter). "auto" is
+// the default because it helps almost every photo without changing its look;
+// the others are for a particular kind of page.
+type Filter = "none" | "auto" | "color" | "gray" | "bw" | "light";
+const FILTERS: { id: Filter; title: string; icon: IconName }[] = [
+  { id: "none", title: "Original", icon: "image-outline" },
+  { id: "auto", title: "Auto", icon: "sparkles-outline" },
+  { id: "color", title: "Magic colour", icon: "color-palette-outline" },
+  { id: "gray", title: "Grayscale", icon: "contrast-outline" },
+  { id: "bw", title: "Black & white", icon: "document-text-outline" },
+  { id: "light", title: "Brighten", icon: "sunny-outline" },
+];
+function FilterChips({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: Filter;
+  onChange: (value: Filter) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <View
+      accessibilityRole="radiogroup"
+      style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, justifyContent: "center" }}
+    >
+      {FILTERS.map((item) => {
+        const selected = item.id === value;
+        return (
+          <Pressable
+            key={item.id}
+            accessibilityRole="radio"
+            accessibilityState={{ selected, disabled: !!disabled }}
+            disabled={disabled}
+            onPress={() => onChange(item.id)}
+            style={({ pressed }) => ({
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 6,
+              paddingHorizontal: 12,
+              minHeight: 38,
+              borderRadius: 19,
+              borderWidth: 1,
+              borderColor: selected ? "#17D7FF" : "#26364C",
+              backgroundColor: selected ? "#17D7FF22" : "#101C2E",
+              opacity: disabled ? 0.5 : pressed ? 0.7 : 1,
+            })}
+          >
+            <Icon name={item.icon} size={15} color={selected ? "#17D7FF" : "#C5D3E5"} />
+            <Label style={{ color: selected ? "#17D7FF" : "#C5D3E5", fontSize: 12, lineHeight: 16 }}>
+              {item.title}
+            </Label>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
 // Compact control for the dark crop stage, where themed buttons would not read.
 function StageAction({
   icon,
@@ -101,6 +159,7 @@ export default function PageEditor() {
   const [curve, setCurve] = useState("0");
   const [rtl, setRtl] = useState(false);
   const [previews, setPreviews] = useState<string[]>([]);
+  const [filter, setFilter] = useState<Filter>("auto");
   const cleanPreview = useRef<(() => void) | null>(null);
   const task = useTask();
   const { refresh } = useDocuments();
@@ -179,7 +238,8 @@ export default function PageEditor() {
       }
     }
   }
-  function edit(enhance = false) {
+  // Saves the crop (and redactions) with the chosen preset, or with none.
+  function edit(withFilter = false) {
     if (!page) return;
     if (mode === "crop" && !validCorners(corners)) {
       Alert.alert(
@@ -196,7 +256,7 @@ export default function PageEditor() {
           uri,
           corners: mode === "crop" ? corners : undefined,
           redactions: mode === "redact" ? boxes : undefined,
-          enhance,
+          filter: withFilter ? filter : "none",
         },
         { signal },
       );
@@ -209,7 +269,24 @@ export default function PageEditor() {
         setCorners([0, 0, 1, 0, 1, 1, 0, 1]);
         setBoxes([]);
         setStart(undefined);
-        Alert.alert("Page saved", "Your draft has been updated.");
+        // The page is safe; the two things people do next are offered
+        // directly instead of leaving them to find the buttons below.
+        const count = (await listPages(draftId)).length;
+        Alert.alert(
+          "Page saved",
+          `${count} ${count === 1 ? "page" : "pages"} in this scan.`,
+          [
+            { text: "Keep editing", style: "cancel" },
+            {
+              text: "Add another page",
+              onPress: () => router.replace({ pathname: "/scanner", params: { draftId } }),
+            },
+            {
+              text: "Done",
+              onPress: () => router.replace({ pathname: "/draft/[id]", params: { id: draftId } }),
+            },
+          ],
+        );
       } finally {
         result.clean();
       }
@@ -436,10 +513,11 @@ export default function PageEditor() {
                 onPress={() => setFine(!fine)}
               />
             </View>
+            <FilterChips value={filter} onChange={setFilter} disabled={task.busy || !hasEngine} />
             <Button
-              title="Crop & enhance"
+              title={filter === "none" ? "Crop" : `Crop & apply ${FILTERS.find((f) => f.id === filter)?.title.toLowerCase()}`}
               disabled={task.busy || !hasEngine || !sized}
-              onPress={() => edit(true)}
+              onPress={() => edit(filter !== "none")}
             />
             <View style={{ flexDirection: "row", gap: 10 }}>
               <View style={{ flex: 1 }}>
@@ -447,7 +525,7 @@ export default function PageEditor() {
                   title="Crop only"
                   secondary
                   disabled={task.busy || !hasEngine || !sized}
-                  onPress={() => edit()}
+                  onPress={() => edit(false)}
                 />
               </View>
               <View style={{ flex: 1 }}>
@@ -687,21 +765,29 @@ export default function PageEditor() {
           })
         }
       />
-      <Button
-        title="Review all pages"
-        secondary
-        disabled={task.busy}
-        onPress={() =>
-          router.replace({ pathname: "/draft/[id]", params: { id: draftId } })
-        }
-      />
-      <Button
-        title="Capture next page"
-        disabled={task.busy}
-        onPress={() =>
-          router.replace({ pathname: "/scanner", params: { draftId } })
-        }
-      />
+      <View style={{ flexDirection: "row", gap: 10 }}>
+        <View style={{ flex: 1 }}>
+          <Button
+            title="Add another page"
+            icon="camera-outline"
+            secondary
+            disabled={task.busy}
+            onPress={() =>
+              router.replace({ pathname: "/scanner", params: { draftId } })
+            }
+          />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Button
+            title="Done"
+            icon="checkmark-outline"
+            disabled={task.busy}
+            onPress={() =>
+              router.replace({ pathname: "/draft/[id]", params: { id: draftId } })
+            }
+          />
+        </View>
+      </View>
     </WorkspaceScreen>
   );
 }
